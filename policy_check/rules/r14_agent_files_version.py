@@ -3,13 +3,10 @@ from __future__ import annotations
 import re
 
 from policy_check.rules.base import RuleContext, RuleResult, Status
-from policy_check.rules.r13_agent_files_exist import AGENT_FILES
+from policy_check.rules.r13_agent_files_exist import AGENT_FILES, agent_files_settings
 from policy_check.rules.registry import register
 
 VER_RE = re.compile(r"^policy_version:\s*([0-9]+\.[0-9]+\.[0-9]+(?:-fix\.\d+)?)\s*$", re.MULTILINE)
-
-CANONICAL = "CLAUDE.md"
-
 
 @register
 class R14AgentFilesVersion:
@@ -54,31 +51,32 @@ class R14AgentFilesVersion:
     def _check_symlink(self, ctx: RuleContext) -> RuleResult:
         declared = ctx.policy_version
         problems: list[str] = []
-        canonical_path = ctx.repo_root / CANONICAL
+        canonical, _ = agent_files_settings(ctx.config)
+        canonical_path = ctx.repo_root / canonical
 
         if canonical_path.is_symlink():
-            problems.append(f"{CANONICAL}: canonical must be a regular file, found symlink")
+            problems.append(f"{canonical}: canonical must be a regular file, found symlink")
         elif canonical_path.is_file():
             text = canonical_path.read_text(encoding="utf-8", errors="replace")
             match = VER_RE.search(text)
             if not match:
-                problems.append(f"{CANONICAL}: policy_version not declared")
+                problems.append(f"{canonical}: policy_version not declared")
             elif match.group(1) != declared:
-                problems.append(f"{CANONICAL}: policy_version {match.group(1)} != declared {declared}")
+                problems.append(f"{canonical}: policy_version {match.group(1)} != declared {declared}")
         # 缺 canonical 交由 R-13
 
         canonical_resolved = canonical_path.resolve()
         for name in AGENT_FILES:
-            if name == CANONICAL:
+            if name == canonical:
                 continue
             path = ctx.repo_root / name
             if not path.exists():
                 continue  # 缺檔／斷鏈交由 R-13
             if not path.is_symlink():
-                problems.append(f"{name}: expected symlink → {CANONICAL}, found regular file")
+                problems.append(f"{name}: expected symlink → {canonical}, found regular file")
                 continue
             if path.resolve() != canonical_resolved:
-                problems.append(f"{name}: symlink target mismatch (expected {CANONICAL})")
+                problems.append(f"{name}: symlink target mismatch (expected {canonical})")
 
         if problems:
             return RuleResult(
@@ -90,5 +88,5 @@ class R14AgentFilesVersion:
         return RuleResult(
             rule_id=self.rule_id,
             status=Status.PASS,
-            message=f"agent files single-source (symlink → {CANONICAL}) aligned to {declared}",
+            message=f"agent files single-source (symlink → {canonical}) aligned to {declared}",
         )
