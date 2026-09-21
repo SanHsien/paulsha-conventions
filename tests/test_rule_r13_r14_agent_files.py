@@ -144,3 +144,80 @@ def test_r14_symlink_fail_when_canonical_is_symlink(tmp_path):
     result = get_rule("R-14").check(_symlink_ctx(repo))
     assert result.status == Status.FAIL
     assert "canonical must be a regular file" in result.detail
+
+
+# --- SanHsien fork: configurable canonical / required agent files ---------------------
+
+
+def _cfg_ctx(repo_root, agent_files, policy_version="1.0.0"):
+    return RuleContext(
+        repo_root=repo_root,
+        profile="flat",
+        policy_version=policy_version,
+        config={"agent_files": agent_files},
+    )
+
+
+def _build_agents_canonical_repo(tmp_path, *, with_claude=False):
+    repo = tmp_path / "repo"
+    (repo / ".github").mkdir(parents=True)
+    (repo / "AGENTS.md").write_text("policy_version: 1.0.0\n", encoding="utf-8")
+    os.symlink("AGENTS.md", repo / "GEMINI.md")
+    os.symlink("../AGENTS.md", repo / ".github" / "copilot-instructions.md")
+    if with_claude:
+        (repo / "CLAUDE.md").write_text("policy_version: 1.0.0\n", encoding="utf-8")
+    return repo
+
+
+AGENTS_CANONICAL_CFG = {
+    "mode": "symlink",
+    "canonical": "AGENTS.md",
+    "required": ["AGENTS.md", "GEMINI.md", ".github/copilot-instructions.md"],
+}
+
+
+def test_r13_pass_when_only_required_files_present(tmp_path):
+    repo = _build_agents_canonical_repo(tmp_path)
+    result = get_rule("R-13").check(_cfg_ctx(repo, AGENTS_CANONICAL_CFG))
+    assert result.status == Status.PASS
+
+
+def test_r13_default_still_requires_claude_md(tmp_path):
+    repo = _build_agents_canonical_repo(tmp_path)
+    result = get_rule("R-13").check(_cfg_ctx(repo, {"mode": "symlink"}))
+    assert result.status == Status.FAIL
+    assert "CLAUDE.md" in result.message
+
+
+def test_r14_symlink_pass_with_agents_canonical(tmp_path):
+    repo = _build_agents_canonical_repo(tmp_path)
+    result = get_rule("R-14").check(_cfg_ctx(repo, AGENTS_CANONICAL_CFG))
+    assert result.status == Status.PASS
+    assert "AGENTS.md" in result.message
+
+
+def test_r14_symlink_fail_when_stray_claude_copy_with_agents_canonical(tmp_path):
+    repo = _build_agents_canonical_repo(tmp_path, with_claude=True)
+    result = get_rule("R-14").check(_cfg_ctx(repo, AGENTS_CANONICAL_CFG))
+    assert result.status == Status.FAIL
+    assert "CLAUDE.md: expected symlink" in result.detail
+
+
+@pytest.mark.parametrize(
+    "agent_files, expected",
+    [
+        ({"canonical": "README.md"}, "agent_files.canonical"),
+        ({"required": ["NOPE.md"]}, "agent_files.required"),
+        ({"canonical": "AGENTS.md", "required": ["GEMINI.md"]}, "must include the canonical"),
+    ],
+)
+def test_r08_rejects_invalid_agent_files_settings(tmp_path, agent_files, expected):
+    import yaml
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    data = {"policy_profile": "flat", "policy_version": "1.0.0", "agent_files": agent_files}
+    (repo / ".project-policy.yml").write_text(yaml.safe_dump(data), encoding="utf-8")
+    result = get_rule("R-08").check(_cfg_ctx(repo, agent_files))
+    assert result.status == Status.FAIL
+    assert expected in result.message

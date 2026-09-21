@@ -33,7 +33,7 @@ def test_reusable_workflow_interface_contract():
     #   - policy_profile, policy_version: 業務參數
     #   - policy_engine_ref: 明確指定 policy engine checkout 的 ref/SHA，
     #     解決跨 repo reusable workflow 中 github.workflow_sha 屬於 caller repo 的問題
-    assert set(inputs.keys()) == {"policy_profile", "policy_version", "policy_engine_ref"}, (
+    assert set(inputs.keys()) == {"policy_profile", "policy_version", "policy_engine_ref", "policy_engine_repo"}, (
         f"Reusable workflow should expose policy_profile, policy_version, and policy_engine_ref. "
         f"Found: {list(inputs.keys())}"
     )
@@ -158,7 +158,7 @@ def test_reusable_workflow_checks_out_policy_engine():
         step for step in steps
         if step.get("uses", "").startswith("actions/checkout")
         and isinstance(step.get("with"), dict)
-        and "hamanpaul/paulsha-conventions" in str(step["with"].get("repository", ""))
+        and str(step["with"].get("repository", "")) == "${{ inputs.policy_engine_repo }}"
     ]
 
     assert checkout_steps_with_repo, (
@@ -209,7 +209,7 @@ def test_reusable_workflow_policy_engine_checkout_is_pinned():
         step for step in steps
         if step.get("uses", "").startswith("actions/checkout")
         and isinstance(step.get("with"), dict)
-        and "hamanpaul/paulsha-conventions" in str(step["with"].get("repository", ""))
+        and str(step["with"].get("repository", "")) == "${{ inputs.policy_engine_repo }}"
     ]
 
     assert engine_checkout_steps, (
@@ -328,7 +328,7 @@ def test_reusable_workflow_validates_policy_engine_ref_is_full_sha():
         (
             i for i, s in enumerate(steps)
             if s.get("uses", "").startswith("actions/checkout")
-            and "hamanpaul/paulsha-conventions" in str(s.get("with", {}).get("repository", ""))
+            and str(s.get("with", {}).get("repository", "")) == "${{ inputs.policy_engine_repo }}"
         ),
         None,
     )
@@ -528,3 +528,14 @@ def test_reusable_workflow_run_step_binds_profile_version_via_env():
     assert "$POLICY_VERSION" in run_cmd, (
         "'Run policy check' run: script must read from $POLICY_VERSION env variable."
     )
+
+
+def test_reusable_workflow_policy_engine_repo_defaults_to_upstream():
+    """SanHsien fork：policy_engine_repo 預設仍指向上游引擎，未傳參數的呼叫端行為不變。"""
+    import yaml
+
+    wf = yaml.safe_load((Path(__file__).parent.parent / ".github" / "workflows" / "reusable-policy-check.yml").read_text(encoding="utf-8"))
+    on = wf.get("on", wf.get(True))
+    repo_input = on["workflow_call"]["inputs"]["policy_engine_repo"]
+    assert repo_input["required"] is False
+    assert repo_input["default"] == "hamanpaul/paulsha-conventions"
