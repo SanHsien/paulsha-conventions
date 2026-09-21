@@ -5,6 +5,7 @@ from pathlib import PurePosixPath
 
 from policy_check.rules.base import RuleContext, RuleResult, Status
 from policy_check import config as policy_config
+from policy_check.rules.r13_agent_files_exist import AGENT_FILES
 from policy_check.rules.registry import register
 
 # conventions_engine.repo 須為 'owner/repo'（空字串 = 未設/NA sentinel，放行）
@@ -127,6 +128,27 @@ class R08PolicyConfigSchema:
                     status=Status.FAIL,
                     message="agent_files.mode must be one of ['copy', 'symlink']",
                 )
+            canonical = agent_files.get("canonical")
+            if canonical is not None and canonical not in AGENT_FILES:
+                return RuleResult(
+                    rule_id=self.rule_id,
+                    status=Status.FAIL,
+                    message=f"agent_files.canonical must be one of {AGENT_FILES}",
+                )
+            required = agent_files.get("required")
+            if required is not None:
+                if not isinstance(required, list) or not all(name in AGENT_FILES for name in required):
+                    return RuleResult(
+                        rule_id=self.rule_id,
+                        status=Status.FAIL,
+                        message=f"agent_files.required must be a list drawn from {AGENT_FILES}",
+                    )
+                if (canonical or "CLAUDE.md") not in required:
+                    return RuleResult(
+                        rule_id=self.rule_id,
+                        status=Status.FAIL,
+                        message="agent_files.required must include the canonical file",
+                    )
 
         # 驗證 conventions_engine 區塊：須為 mapping；repo（若存在）須為 str
         conventions_engine = data.get("conventions_engine")

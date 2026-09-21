@@ -23,6 +23,14 @@ on:
           paulsha-conventions version they pin.
         required: true
         type: string
+      policy_engine_repo:
+        description: >
+          owner/repo that hosts the policy engine at policy_engine_ref. Defaults to
+          the upstream engine; forks that call their own copy of this workflow pass
+          their own repo so the checked-out engine matches the pinned workflow.
+        required: false
+        type: string
+        default: hamanpaul/paulsha-conventions
 
 permissions:
   contents: read
@@ -61,7 +69,7 @@ jobs:
       - name: Checkout policy engine
         uses: actions/checkout@v4
         with:
-          repository: hamanpaul/paulsha-conventions
+          repository: ${{ inputs.policy_engine_repo }}
           ref: ${{ inputs.policy_engine_ref }}
           path: .policy-engine
 
