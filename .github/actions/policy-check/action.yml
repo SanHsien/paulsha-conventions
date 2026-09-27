@@ -1,0 +1,20 @@
+name: policy-check
+description: Run policy_check from local repository source
+
+inputs:
+  profile:
+    description: Policy profile (must match .project-policy.yml)
+    required: true
+  version:
+    description: Policy version (must match .project-policy.yml)
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Run policy_check
+      shell: bash
+      run: |
+        "${{ github.action_path }}/run.sh" \
+          "${{ inputs.profile }}" \
+          "${{ inputs.version }}"

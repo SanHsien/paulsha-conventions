@@ -1,0 +1,58 @@
+policy_profile: flat
+policy_version: 1.0.17
+code_paths:
+  - "**/*.py"
+  - "**/*.sh"
+  - "scripts/**"
+# canonical doc scope（#26）：R-18 / R-22 共用範圍。此處 dogfood 顯式宣告預設值；
+# 下游 repo 可加入 CLAUDE.md、skill SKILL.md 等 root 外 canonical docs（見 README 範例）。
+doc_paths:
+  - "README.md"
+  - "docs/**"
+cli:
+  - command: "python3 -m policy_check"
+    help_args: ["--help"]
+    reflected_in: "README.md"
+    marker: "policy-check-help"
+  - command: "python3 -m policy_check.preflight"
+    help_args: ["--help"]
+    reflected_in: "README.md"
+    marker: "policy-preflight-help"
+  - command: "python3 -m policy_check.runtime_bundle.cli"
+    help_args: ["--help"]
+    reflected_in: "README.md"
+    marker: "policy-runtime-bundle-help"
+preflight:
+  steps:
+    - name: openspec
+      kind: validation
+      argv: ["openspec", "validate", "--all"]
+      when_path_exists: "openspec"
+      timeout_seconds: 300
+    - name: tests
+      kind: tests
+      argv: ["python3", "-m", "pytest", "-q"]
+      timeout_seconds: 1200
+tier: shareable
+secret_scan:
+  allow:
+    - "policy_check/rules/r21_secret_scan.py"
+    - "tests/test_rule_r21_secret_scan.py"
+    - "tests/fixtures/secret-scan/**"
+    - "openspec/**"
+    - "docs/**"
+doc_reference:
+  allow: []
+agent_files:
+  mode: symlink
+conventions_engine:
+  # 本 repo 即引擎本體，workflow 以 ./ 在地引用 → R-23 NA。
+  # 下游 repo 在此填 hamanpaul/paulsha-conventions 以啟用 attestation。
+  repo: ""
+moc:
+  # 本 repo 無 build/install trigger，故不設 static/triggers；只用動態地圖 dogfood R-24。
+  map: docs/MOC.md
+generated_facts:
+  - command: "cat VERSION"
+    reflected_in: "README.md"
+    marker: "repo-version"

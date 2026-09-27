@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "policy-check"
+version = "1.0.17"
+description = "Cross-repo policy checker for hamanpaul/*"
+requires-python = ">=3.11"
+dependencies = [
+    "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=7.0"]
+
+[project.scripts]
+policy-check = "policy_check.cli:main"
+policy-preflight = "policy_check.preflight:main"
+policy-runtime-bundle = "policy_check.runtime_bundle.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["policy_check*"]
+
+[tool.setuptools.package-data]
+"policy_check.data" = ["*.yml"]
+"policy_check.runtime_bundle" = ["constraints.txt"]
+
+[tool.pytest.ini_options]
+# fixtures/ 內含給規則測試用的假 repo（可能帶 test_*.py），不可被 pytest 蒐集
+addopts = "--ignore=tests/fixtures"
