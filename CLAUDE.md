@@ -15,6 +15,7 @@ policy_version: 1.0.17
 - [ ] 確認當前分支不是 `main`
   - 若在 `main`，先開 `feature/<slug>` 分支
   - 若在 `feature/*`，可直接工作，或再開 `wt/<feature>/<subtask>`
+  - 本 repo 未宣告 `branch_source`，所以仍為 feature-only。下游在支援此契約的正式引擎版本可用 `branch_source.allowed_prefixes: [feature, fix]` opt-in；`fix/<slug>` 作 base 時也只能收 `wt/<相同 slug>/<subtask>`，詳見 `docs/branch-source-contract.md`
 - [ ] 若本任務跨多個子項，先建議用 `git worktree` 拆開
 - [ ] 若本任務對應某 issue（軟性建議，不打斷流程）：用 `gh issue view <N>` 核對該 issue 與本任務相關，分支可命名為 `feature/<N>-<slug>`，開 PR 時於 body 寫 `Closes #N`
   - 查無對應 issue：照常往下做，不需另開 issue、不需停下

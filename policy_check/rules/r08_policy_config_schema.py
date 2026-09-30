@@ -41,6 +41,14 @@ class R08PolicyConfigSchema:
 
         path = resolution.path
         data = resolution.data
+        try:
+            policy_config.branch_source_prefixes(data)
+        except policy_config.ConfigError as exc:
+            return RuleResult(
+                rule_id=self.rule_id,
+                status=Status.FAIL,
+                message=f"{path.name}: {exc}",
+            )
 
         missing = [key for key in self._required_keys if key not in data]
         if missing:

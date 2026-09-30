@@ -76,7 +76,7 @@ This repository **dog-foods its own policy** (`profile: flat`; `policy_version` 
 | R-09 | code change ⇒ changelog fragment | code paths changed but this PR added no `changelog.d/*.md` fragment | `skip-changelog` |
 | R-10 | PR title is conventional-commit | regex mismatch | `policy-exempt:pr-title` |
 | R-11 | PR body checkboxes all ticked | a required box is unticked | auto-passes under `wip` |
-| R-12 | branch source is correct | target = main but source ≠ `feature/*`; target = `feature/*` but source ≠ `wt/<feature>/*` | `policy-exempt:branch-name` |
+| R-12 | branch source is correct | main source is not an allowed `feature/<slug>` / opt-in `fix/<slug>`, or a configured base lacks a matching `wt/<slug>/<subtask>` source | `policy-exempt:branch-name` |
 | R-13 | agent convention files exist | missing `CLAUDE.md` / `AGENTS.md` / `GEMINI.md` / `.github/copilot-instructions.md` | `policy-exempt:agent-files` |
 | R-14 | agent-files single-source integrity (config-gated) | `copy` (default): the four files' `policy_version` disagrees with `.project-policy.yml`; `symlink`: a mirror file is not a symlink / does not resolve to `CLAUDE.md` / the canonical file is itself a symlink | — |
 | R-15 | caller workflow pins by tag / SHA (this repo's policy-check dual-pinning path additionally requires a full 40-char SHA) | `uses:` points at a branch ref (`@main`, `@develop`) or has no ref | — |
@@ -93,6 +93,26 @@ This repository **dog-foods its own policy** (`profile: flat`; `policy_version` 
 | R-26 | generated-fact marker sync (opt-in) | when a repo declares `generated_facts`: the marker block content disagrees with the command's normalized stdout, the marker is missing, the command exits non-zero, or the config is incomplete | — |
 
 **Exemption label allowlist**: the `policy-exempt:*` / `skip-changelog` / `wip` labels listed above are the complete set of usable exemption labels; the gate honors only these — anything else counts as un-exempted.
+
+### Branch-source contract (R-12)
+
+The optional `branch_source.allowed_prefixes` manifest setting adds native
+`fix/<slug>` support without a branch-name exemption. Omit the whole block to
+retain the feature-only default; the only supported prefixes are `feature` and
+`fix`, and `feature` must remain enabled. GitLab applicability is unchanged.
+
+```yaml
+# Opt-in template; use only with the first published engine release containing
+# this contract (not the previously published v1.0.17).
+branch_source:
+  allowed_prefixes: [feature, fix]
+```
+
+Both enabled branch types require a matching `wt/<slug>/<subtask>` source when
+used as a PR base. Invalid config and malformed enabled-prefix bases fail closed.
+Issue IDs are recommended, not required. See the complete
+[contract and release/downstream migration](docs/branch-source-contract.md),
+including event-label precedence and local/CI parity.
 
 ### Doc-alignment governance (three tiers)
 
@@ -588,7 +608,7 @@ The license follows the repository owner's preference; see the `LICENSE` file at
 | R-09 | Code 變動必有 changelog fragment | code path 有變動但本 PR 未新增 `changelog.d/*.md` fragment | `skip-changelog` |
 | R-10 | PR title 符合 conventional-commit | regex 不匹配 | `policy-exempt:pr-title` |
 | R-11 | PR body checkbox 全勾 | 必勾項未勾滿 | `wip` 時自動通過 |
-| R-12 | 分支來源正確 | 目標=main 時來源非 `feature/*`；目標=`feature/*` 時來源非 `wt/<feature>/*` | `policy-exempt:branch-name` |
+| R-12 | 分支來源正確 | main 來源不符預設 `feature/<slug>`／opt-in `fix/<slug>`；啟用前綴的 base 未搭配同 slug 的 `wt/<slug>/<subtask>` | `policy-exempt:branch-name` |
 | R-13 | Agent convention files 存在 | 缺 `CLAUDE.md` / `AGENTS.md` / `GEMINI.md` / `.github/copilot-instructions.md` | `policy-exempt:agent-files` |
 | R-14 | Agent files 單一真檔完整性（config-gated） | `copy`（預設）：四檔 `policy_version` 與 `.project-policy.yml` 不符；`symlink`：鏡像檔非 symlink／未 resolve 到 `CLAUDE.md`／canonical 自身為 symlink | — |
 | R-15 | Caller workflow 用 tag / SHA 鎖定（本 repo 的 policy-check dual-pinning path 另要求完整 40 字元 SHA） | `uses:` 指向 branch ref（`@main`、`@develop`）或無 ref | — |
@@ -605,6 +625,15 @@ The license follows the repository owner's preference; see the `LICENSE` file at
 | R-26 | 生成事實 marker 同步（opt-in） | repo 宣告 `generated_facts` 時：`generated-fact` marker 區塊內容與 command 正規化 stdout 不一致、marker 缺失、command 非 0 結束、或設定不完整則 **FAIL**；與 R-16 的 `cli-help` marker 並存不互相覆蓋；未宣告 `generated_facts` 則 NA | — |
 
 **Exemption Labels 白名單**：上表所列 `policy-exempt:*` / `skip-changelog` / `wip` 即所有可用豁免 label；gate 只認這些，其他一律視同未豁免。
+
+### 分支來源契約（R-12）
+
+Manifest 可用 `branch_source.allowed_prefixes: [feature, fix]` 正式啟用修復分支，
+不需要自動加 branch-name 豁免。省略整段時維持 feature-only；只接受 `feature`、
+`fix`，且必須保留 `feature`。這是尚待發布的契約，不能把已發布 v1.0.17 當成已支援。
+兩類啟用的 base 都強制 `wt/<相同 slug>/<subtask>`，非法設定與 base 命名直接失敗；
+issue-id 只是建議，GitLab 的不適用行為不變。完整設定範本、label 優先序、
+preflight／CI 語意及升版流程見[分支契約與遷移](docs/branch-source-contract.md)。
 
 ### Doc-alignment governance（三層）
 
