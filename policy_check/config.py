@@ -116,3 +116,28 @@ def load(repo_root: Path, *, warn: bool = True) -> dict:
     if warn and resolution.warning:
         warnings.warn(resolution.warning, ConfigWarning, stacklevel=2)
     return resolution.data
+
+
+def branch_source_prefixes(data: dict) -> tuple[str, ...]:
+    """Resolve R-12's bounded, opt-in branch contract without widening defaults."""
+    if "branch_source" not in data:
+        return ("feature",)
+    branch_source = data["branch_source"]
+    if not isinstance(branch_source, dict):
+        raise ConfigError("branch_source must be a mapping")
+    if set(branch_source) != {"allowed_prefixes"}:
+        raise ConfigError("branch_source must contain only allowed_prefixes")
+    prefixes = branch_source["allowed_prefixes"]
+    if (
+        not isinstance(prefixes, list)
+        or not prefixes
+        or not all(isinstance(prefix, str) for prefix in prefixes)
+    ):
+        raise ConfigError("branch_source.allowed_prefixes must be a non-empty list of strings")
+    if len(set(prefixes)) != len(prefixes):
+        raise ConfigError("branch_source.allowed_prefixes must not contain duplicates")
+    if any(prefix not in {"feature", "fix"} for prefix in prefixes):
+        raise ConfigError("branch_source.allowed_prefixes supports only 'feature' and 'fix'")
+    if "feature" not in prefixes:
+        raise ConfigError("branch_source.allowed_prefixes must include 'feature'")
+    return tuple(prefixes)
