@@ -10,7 +10,7 @@ superpowers plans/specs，並標其 stage 狀態。
 
 ## Canonical capabilities / archived changes
 
-- [R-12 分支來源契約與遷移](branch-source-contract.md) — 修復分支 opt-in 實作；正式 release 與下游 pin 驗收待完成
+- [R-12 分支來源契約與遷移](branch-source-contract.md) — v1.0.18 修復分支 opt-in 契約；下游 pin 驗收依遷移流程執行
 
 - [runtime bundle specification](../openspec/specs/runtime-bundle/spec.md) — v1.0.14 正式 bundle、offline lifecycle 與 fleet rollout 已完成；斷電級 hardening 見 #52
 - [project-policy manifest specification](../openspec/specs/project-policy-manifest/spec.md) — canonical manifest 與 10-repo migration 已完成

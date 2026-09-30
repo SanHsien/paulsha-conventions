@@ -3,14 +3,14 @@
 ## 發布狀態與設定範本
 
 此契約是 [issue 87](https://github.com/hamanpaul/paulsha-conventions/issues/87)
-的未發布變更，已發布的 v1.0.17 不支援。功能 PR 不假冒 release、不改現有 tag，
-也不把工作分支 SHA 當成合法下游 release pin。版本 bump 與正式 tag 在審查及合併
-核可後依 [RELEASES.md](../RELEASES.md) 的升版傳播 SOP 一併處理。
+的 v1.0.18 變更；v1.0.17 不支援。使用前須確認正式 tag、release assets 與
+[RELEASES.md](../RELEASES.md) 譜系一致，不把未合併工作分支 SHA 當成合法
+下游 release pin。發行流程依該文件的升版傳播 SOP 執行。
 
 下游 `.project-policy.yml` 的 opt-in 範本：
 
 ```yaml
-# policy_version 與所有 engine pins 必須先同步到包含本契約的正式 release。
+# policy_version 與所有 engine pins 必須先同步到正式 v1.0.18 或後續支援版本。
 branch_source:
   allowed_prefixes: [feature, fix]
 ```

@@ -5,6 +5,11 @@
 格式基於 [Keep a Changelog 1.1.0](https://keepachangelog.com/zh-TW/1.1.0/)，
 本專案遵循 hamanpaul project policy v1.0.4。
 
+## [1.0.18] - 2026-09-30
+
+### Fixed
+- 新增明確 opt-in 的 `branch_source.allowed_prefixes: [feature, fix]`，修復中央分支規則與下游修復分支契約不一致；省略設定維持 feature-only，啟用前綴的 base 強制 worktree slug 配對並拒絕非法設定與命名。
+
 ## [1.0.17] - 2026-08-11
 
 ### Added
