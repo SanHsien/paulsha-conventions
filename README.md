@@ -38,7 +38,7 @@ Scope to specific rules with `--only R-01,R-09`. For CI (GitHub reusable workflo
 The canonical project version lives in `VERSION`; release tags use `vX.Y.Z`. Version semantics (`profile: flat`) are described under [English → Versioning](#versioning) / [繁體中文 → 版本](#版本). Current version:
 
 <!-- BEGIN: generated-fact marker="repo-version" -->
-1.0.17
+1.0.18
 <!-- END: generated-fact marker="repo-version" -->
 
 ---
@@ -102,8 +102,8 @@ retain the feature-only default; the only supported prefixes are `feature` and
 `fix`, and `feature` must remain enabled. GitLab applicability is unchanged.
 
 ```yaml
-# Opt-in template; use only with the first published engine release containing
-# this contract (not the previously published v1.0.17).
+# Opt-in template introduced in v1.0.18; install the published engine release
+# and synchronize policy_version/pins before enabling it (v1.0.17 lacks support).
 branch_source:
   allowed_prefixes: [feature, fix]
 ```
@@ -630,7 +630,7 @@ The license follows the repository owner's preference; see the `LICENSE` file at
 
 Manifest 可用 `branch_source.allowed_prefixes: [feature, fix]` 正式啟用修復分支，
 不需要自動加 branch-name 豁免。省略整段時維持 feature-only；只接受 `feature`、
-`fix`，且必須保留 `feature`。這是尚待發布的契約，不能把已發布 v1.0.17 當成已支援。
+`fix`，且必須保留 `feature`。此契約自 v1.0.18 引入；須先安裝正式 release 並同步版本／pin，v1.0.17 不支援。
 兩類啟用的 base 都強制 `wt/<相同 slug>/<subtask>`，非法設定與 base 命名直接失敗；
 issue-id 只是建議，GitLab 的不適用行為不變。完整設定範本、label 優先序、
 preflight／CI 語意及升版流程見[分支契約與遷移](docs/branch-source-contract.md)。
