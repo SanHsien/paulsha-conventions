@@ -12,7 +12,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-test = ["pytest>=7.0"]
+test = ["pytest>=9.1.1"]
 
 [project.scripts]
 policy-check = "policy_check.cli:main"
