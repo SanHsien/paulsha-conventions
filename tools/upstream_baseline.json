@@ -1,9 +1,9 @@
 {
   "repo": "https://github.com/hamanpaul/paulsha-conventions.git",
   "branch": "main",
-  "reviewed_through": "7539d5252159eac50e278ec2a3bcbc5189d396ab",
-  "reviewed_date": "2026-09-30",
-  "reviewed_pr_through": 89,
+  "reviewed_through": "65d9e4339c1e2bd615a80c8126b6611af68d0ee4",
+  "reviewed_date": "2026-10-01",
+  "reviewed_pr_through": 90,
   "reviewed_issue_through": 87,
   "track": "commit",
   "decision_log": "docs/DECISIONS.md"
