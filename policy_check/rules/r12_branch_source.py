@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 
+from policy_check import config as policy_config
 from policy_check.rules.base import RuleContext, RuleResult, Status
 from policy_check.rules.registry import register
 
@@ -11,7 +12,7 @@ class R12BranchSource:
     rule_id = "R-12"
     exempt_label = "policy-exempt:branch-name"
 
-    _feature_pattern = re.compile(r"^feature/(?P<slug>[a-z0-9][a-z0-9-]*)$")
+    _branch_pattern = re.compile(r"(?P<prefix>feature|fix)/(?P<slug>[a-z0-9][a-z0-9-]*)")
     _worktree_pattern = re.compile(r"^wt/(?P<slug>[a-z0-9][a-z0-9-]*)/(?P<subtask>[a-z0-9][a-z0-9-]*)$")
 
     def check(self, ctx: RuleContext) -> RuleResult:
@@ -37,55 +38,67 @@ class R12BranchSource:
                 message="Missing PR base/head ref; treat as non-PR context.",
             )
 
+        source = (
+            f"{policy_config.config_path(ctx.repo_root).name}:branch_source.allowed_prefixes"
+            if "branch_source" in ctx.config
+            else "built-in default (branch_source omitted)"
+        )
+        try:
+            prefixes = policy_config.branch_source_prefixes(ctx.config)
+        except policy_config.ConfigError as exc:
+            return RuleResult(
+                rule_id=self.rule_id,
+                status=Status.FAIL,
+                message=f"Invalid R-12 contract ({source}): {exc}",
+            )
+        allowed = " or ".join(f"{prefix}/<slug>" for prefix in prefixes)
+        contract = f"Effective main sources: {allowed}; source: {source}."
         base = ctx.pr_base_ref.strip()
         head = ctx.pr_head_ref.strip()
 
         if base == "main":
-            if self._feature_pattern.match(head):
+            head_branch = self._branch_pattern.fullmatch(head)
+            if head_branch and head_branch.group("prefix") in prefixes:
                 return RuleResult(
                     rule_id=self.rule_id,
                     status=Status.PASS,
-                    message="Branch naming is valid for PR into main.",
+                    message=f"Branch naming is valid for PR into main. {contract}",
                 )
             return RuleResult(
                 rule_id=self.rule_id,
                 status=Status.FAIL,
-                message="When base is main, head must be feature/<slug>.",
+                message=f"When base is main, head must be {allowed}. {contract}",
             )
 
-        feature_base = self._feature_pattern.match(base)
-        if feature_base:
-            expected_slug = feature_base.group("slug")
-            worktree_head = self._worktree_pattern.match(head)
-            if not worktree_head:
+        # A configured prefix also owns its base branches. Malformed names must
+        # not fall through to the legacy outside-scope path.
+        if base.split("/", 1)[0] in prefixes:
+            base_branch = self._branch_pattern.fullmatch(base)
+            if not base_branch:
+                return RuleResult(
+                    rule_id=self.rule_id,
+                    status=Status.FAIL,
+                    message=f"Base branch must be {allowed} with a valid slug. {contract}",
+                )
+            expected_slug = base_branch.group("slug")
+            worktree_head = self._worktree_pattern.fullmatch(head)
+            if not worktree_head or worktree_head.group("slug") != expected_slug:
                 return RuleResult(
                     rule_id=self.rule_id,
                     status=Status.FAIL,
                     message=(
-                        f"When base is feature/{expected_slug}, "
-                        f"head must be wt/{expected_slug}/<subtask>."
+                        f"When base is {base}, "
+                        f"head must be wt/{expected_slug}/<subtask>. {contract}"
                     ),
                 )
-
-            head_slug = worktree_head.group("slug")
-            if head_slug != expected_slug:
-                return RuleResult(
-                    rule_id=self.rule_id,
-                    status=Status.FAIL,
-                    message=(
-                        f"When base is feature/{expected_slug}, "
-                        f"head must be wt/{expected_slug}/<subtask>."
-                    ),
-                )
-
             return RuleResult(
                 rule_id=self.rule_id,
                 status=Status.PASS,
-                message="Branch naming is valid for worktree PR into feature branch.",
+                message=f"Branch naming is valid for worktree PR into {base}. {contract}",
             )
 
         return RuleResult(
             rule_id=self.rule_id,
             status=Status.PASS,
-            message="Base branch is outside R-12 scope; skipped by applicability.",
+            message=f"Base branch is outside R-12 scope; skipped by applicability. {contract}",
         )

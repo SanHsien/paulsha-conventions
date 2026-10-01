@@ -46,3 +46,24 @@ scripts/docs/agent markers；中央 engine MUST NOT 自動改寫下游 checkout�
 #### Scenario: downstream migration
 - **WHEN** 某下游 repo 仍 tracked legacy name
 - **THEN** migration 在該 repo branch/PR 完成，保留該 repo 自有 gate 與 review
+
+### Requirement: R-12 使用受限且向後相容的分支來源契約
+Manifest MAY 宣告 `branch_source.allowed_prefixes`，僅可使用不重複且非空的
+`feature`／`fix` 字串 list，且 MUST 保留 `feature`。省略整個區塊 SHALL 保持
+feature-only 預設。顯式 null、缺 key、未知 key、錯誤型別或 unsupported prefix
+MUST 由 R-08 拒絕，不得靜默擴大允許範圍。
+
+#### Scenario: fix opt-in 與 worktree slug 配對
+- **WHEN** GitHub PR manifest 設為 `[feature, fix]`
+- **THEN** `fix/<slug>` MAY 合入 main，且 fix base MUST 僅接受同 slug 的
+  `wt/<slug>/<subtask>`；slug/subtask MUST 完整符合 `[a-z0-9][a-z0-9-]*`
+
+#### Scenario: 已啟用前綴的 malformed base
+- **WHEN** base 使用已啟用的 feature 或 fix 前綴，但 slug 為空或不合法
+- **THEN** R-12 MUST FAIL，不得回退成 outside-scope PASS
+
+#### Scenario: 相容性與真實 labels 優先序
+- **WHEN** provider 為 GitLab、缺少 PR refs，或具有真實 branch-name exemption
+- **THEN** R-12 SHALL 保持既有 applicability/exemption 行為；R-08 仍驗證設定。
+  GitHub event 的 labels（包含空 list）MUST 優先於 CLI labels，本機 preflight
+  與 CI 在同一 context 下 MUST 使用相同規則
