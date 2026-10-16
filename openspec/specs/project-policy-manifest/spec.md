@@ -48,8 +48,8 @@ scripts/docs/agent markers；中央 engine MUST NOT 自動改寫下游 checkout�
 - **THEN** migration 在該 repo branch/PR 完成，保留該 repo 自有 gate 與 review
 
 ### Requirement: R-12 使用受限且向後相容的分支來源契約
-Manifest MAY 宣告 `branch_source.allowed_prefixes`，僅可使用不重複且非空的
-`feature`／`fix` 字串 list，且 MUST 保留 `feature`。省略整個區塊 SHALL 保持
+Manifest MAY 宣告 `branch_source.allowed_prefixes`，且 MUST 保留 `feature`；
+僅可使用不重複且非空的 `feature`／`fix` 字串 list。省略整個區塊 SHALL 保持
 feature-only 預設。顯式 null、缺 key、未知 key、錯誤型別或 unsupported prefix
 MUST 由 R-08 拒絕，不得靜默擴大允許範圍。
 
