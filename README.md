@@ -91,7 +91,7 @@ This repository **dog-foods its own policy** (`profile: flat`; `policy_version` 
 | R-24 | MOC aligned with this change | when a repo declares `moc`: `moc.static` out of sync (**WARN**) / `moc.map` has a dangling link (new breakage **FAIL**, pre-existing **WARN**) / an active openspec change・plan・spec is unlinked (**WARN**) | `policy-exempt:moc-alignment` |
 | R-25 | doc coverage (omission gate, opt-in) | when a repo declares `doc_coverage`: a public fact extracted from the sources is not exactly mentioned in any target doc | — |
 | R-26 | generated-fact marker sync (opt-in) | when a repo declares `generated_facts`: the marker block content disagrees with the command's normalized stdout, the marker is missing, the command exits non-zero, or the config is incomplete | — |
-| R-27 | diagnostic code doc coverage (opt-in, OD-06) | when a repo declares diagnostic_codes: a code printed by the declared extract command has no doc entry with non-empty meaning and action in the declared docs, the command fails, or the config is invalid | — |
+| R-27 | diagnostic code doc coverage (opt-in, OD-06) | when a repo declares `diagnostic_codes`: a code printed by the declared extract command has no doc entry with non-empty meaning and action in the declared docs, the command fails, or the config is invalid | — |
 
 **Exemption label allowlist**: the `policy-exempt:*` / `skip-changelog` / `wip` labels listed above are the complete set of usable exemption labels; the gate honors only these — anything else counts as un-exempted.
 
