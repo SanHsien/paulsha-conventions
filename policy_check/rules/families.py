@@ -20,7 +20,7 @@ FAMILIES: list[tuple[str, tuple[str, ...]]] = [
     ("MARKER-SYNC", ("R-16", "R-26")),
     ("CI", ("R-19",)),
     ("SECRET", ("R-21",)),
-    ("DOC-ALIGN", ("R-18", "R-22", "R-24", "R-25")),
+    ("DOC-ALIGN", ("R-18", "R-22", "R-24", "R-25", "R-27")),
 ]
 
 OTHER = "OTHER"

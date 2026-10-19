@@ -61,7 +61,7 @@ This repository **dog-foods its own policy** (`profile: flat`; `policy_version` 
 - "Branch naming is inconsistent and version semantics drift."
 - "The policy says comply — but the policy repo itself does not."
 
-### Rules (R-01 ~ R-26)
+### Rules (R-01 ~ R-27)
 
 | ID | Check | Fail condition | Exempt label |
 |----|-------|----------------|--------------|
@@ -91,6 +91,7 @@ This repository **dog-foods its own policy** (`profile: flat`; `policy_version` 
 | R-24 | MOC aligned with this change | when a repo declares `moc`: `moc.static` out of sync (**WARN**) / `moc.map` has a dangling link (new breakage **FAIL**, pre-existing **WARN**) / an active openspec change・plan・spec is unlinked (**WARN**) | `policy-exempt:moc-alignment` |
 | R-25 | doc coverage (omission gate, opt-in) | when a repo declares `doc_coverage`: a public fact extracted from the sources is not exactly mentioned in any target doc | — |
 | R-26 | generated-fact marker sync (opt-in) | when a repo declares `generated_facts`: the marker block content disagrees with the command's normalized stdout, the marker is missing, the command exits non-zero, or the config is incomplete | — |
+| R-27 | diagnostic code doc coverage (opt-in, OD-06) | when a repo declares `diagnostic_codes`: a code printed by the declared extract command has no doc entry with non-empty meaning and action in the declared docs, the command fails, or the config is invalid | — |
 
 **Exemption label allowlist**: the `policy-exempt:*` / `skip-changelog` / `wip` labels listed above are the complete set of usable exemption labels; the gate honors only these — anything else counts as un-exempted.
 
@@ -172,11 +173,20 @@ generated_facts:
     command: "python3 scripts/render-rpc-facts.py"
     reflected_in: "README.md"
     marker: "rpc-methods"
+
+# 4) diagnostic_codes (opt-in, R-27): code doc coverage for extracted diagnostic / error codes (OD-06)
+diagnostic_codes:
+  - namespace: "error_code"
+    extract: "python3 scripts/emit-codes.py"
+    docs: ["docs/errors.md"]
+    entry_pattern: '^\| `(?P<code>[^`]+)` \| (?P<meaning>[^|\n]*\S[^|\n]*) \| (?P<action>[^|\n]*\S[^|\n]*) \|$'
+    require_in: "all"
+    timeout_seconds: 30
 ```
 
 - **Mention semantics**: R-25 uses case-sensitive exact token/phrase matching; a substring hit does not count as coverage.
 - **`changed`-mode boundary**: when base diff context is missing (e.g. a local `--repo .`) it downgrades to WARN; `cli_tree` cannot snapshot the base, so it is only checked under `mode: all`.
-- **Security note (command-executing rules)**: `R-16` (`cli`), R-25's `cli_tree` extractor and `R-26` (`generated_facts`) execute the commands declared in `.project-policy.yml` (no shell injection, but the command string itself is config-controlled and inherits the full environment). Therefore **do not** run `policy_check` on untrusted PR / fork branches; only enable it on trusted repo config.
+- **Security note (command-executing rules)**: `R-16` (`cli`), R-25's `cli_tree` extractor, `R-26` (`generated_facts`), and `R-27` (`diagnostic_codes`) execute the commands declared in `.project-policy.yml` (no shell injection, but the command string itself is config-controlled and inherits the full environment). Therefore **do not** run `policy_check` on untrusted PR / fork branches; only enable it on trusted repo config.
 
 R-19's staged rollout can be made strict per repository:
 
@@ -593,7 +603,7 @@ The license follows the repository owner's preference; see the `LICENSE` file at
 
 版本譜系（policy_version ↔ engine tag/SHA 對照）見 [`RELEASES.md`](./RELEASES.md)。
 
-### 規則總覽（R-01 ~ R-26）
+### 規則總覽（R-01 ~ R-27）
 
 | ID | 檢查項 | 失敗條件 | 豁免 label |
 |----|--------|----------|------------|
@@ -623,6 +633,7 @@ The license follows the repository owner's preference; see the `LICENSE` file at
 | R-24 | MOC 與本次變更對齊 | repo 宣告 `moc` 時：`moc.triggers` 命中但 `moc.static` 未同步（**WARN**）／`moc.map` 連結懸空（本次新破壞 **FAIL**、陳年 **WARN**）／active openspec change・plan・spec 未被連結（**WARN**，永不 FAIL）；orphan/freshness 改呼叫共用核心，受治理前綴**參數化**（預設沿用既有前綴）；未宣告 `moc` 則 NA | `policy-exempt:moc-alignment` |
 | R-25 | 文件覆蓋（omission gate，opt-in） | repo 宣告 `doc_coverage` 時：extractor 抽出的 public fact 未在任一 target doc 被精確 mention 則 **FAIL**（`mode: changed` 只查本次新增 fact、`mode: all` 查全部）；`mode: changed` 缺 base diff context 降 **WARN**；target 超出 `doc_paths`／不存在／extractor 設定無效 **FAIL**；未宣告 `doc_coverage` 則 NA | — |
 | R-26 | 生成事實 marker 同步（opt-in） | repo 宣告 `generated_facts` 時：`generated-fact` marker 區塊內容與 command 正規化 stdout 不一致、marker 缺失、command 非 0 結束、或設定不完整則 **FAIL**；與 R-16 的 `cli-help` marker 並存不互相覆蓋；未宣告 `generated_facts` 則 NA | — |
+| R-27 | 診斷碼文件說明覆蓋（opt-in，OD-06） | repo 宣告 `diagnostic_codes` 時：抽取指令印出的碼在宣告文件中缺少非空的意義或處置、抽取指令執行失敗、或設定不合規 | — |
 
 **Exemption Labels 白名單**：上表所列 `policy-exempt:*` / `skip-changelog` / `wip` 即所有可用豁免 label；gate 只認這些，其他一律視同未豁免。
 
@@ -699,12 +710,21 @@ generated_facts:
     command: "python3 scripts/render-rpc-facts.py"
     reflected_in: "README.md"
     marker: "rpc-methods"
+
+# 4) diagnostic_codes（opt-in，R-27）：診斷碼／錯誤碼文件說明覆蓋（OD-06）
+diagnostic_codes:
+  - namespace: "error_code"
+    extract: "python3 scripts/emit-codes.py"
+    docs: ["docs/errors.md"]
+    entry_pattern: '^\| `(?P<code>[^`]+)` \| (?P<meaning>[^|\n]*\S[^|\n]*) \| (?P<action>[^|\n]*\S[^|\n]*) \|$'
+    require_in: "all"
+    timeout_seconds: 30
 ```
 
 - **mention 判定**：R-25 採區分大小寫的精確 token/phrase 比對，子字串命中不算覆蓋（例如 `session.closed` 不滿足 `session.close`）。
 - **changed 模式邊界**：缺 base diff context（如本地 `--repo .`）時降 WARN，不在無證據下 FAIL；`cli_tree` 無法快照 base，僅在 `mode: all` 受檢。
 - **generated-fact marker 語法**：`<!-- BEGIN: generated-fact marker="<name>" -->` … `<!-- END: generated-fact marker="<name>" -->`；command 以 `shlex.split` 不經 shell 執行、`cwd=repo_root`、`LC_ALL=C`、固定 30 秒 timeout，只比對正規化 stdout。
-- **安全注意（命令執行型規則）**：`R-16`（`cli`）、`R-25` 的 `cli_tree` extractor 與 `R-26`（`generated_facts`）會執行 `.project-policy.yml` 宣告的命令（無 shell injection，但命令字串本身受 config 控制並繼承完整環境）。因此**不應**在未信任的 PR／fork 分支上執行 `policy_check`；只在可信任的 repo config 上啟用。`cli_tree` 在 `mode: changed` 不會被執行（僅 `mode: all` 才跑）。
+- **安全注意（命令執行型規則）**：`R-16`（`cli`）、`R-25` 的 `cli_tree` extractor、`R-26`（`generated_facts`）與 `R-27`（`diagnostic_codes`）會執行 `.project-policy.yml` 宣告的命令（無 shell injection，但命令字串本身受 config 控制並繼承完整環境）。因此**不應**在未信任的 PR／fork 分支上執行 `policy_check`；只在可信任的 repo config 上啟用。`cli_tree` 在 `mode: changed` 不會被執行（僅 `mode: all` 才跑）。
 
 R-19 的分階段 rollout 可由各 repo 自行提前切換 strict：
 
