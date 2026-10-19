@@ -38,7 +38,7 @@ Scope to specific rules with `--only R-01,R-09`. For CI (GitHub reusable workflo
 The canonical project version lives in `VERSION`; release tags use `vX.Y.Z`. Version semantics (`profile: flat`) are described under [English → Versioning](#versioning) / [繁體中文 → 版本](#版本). Current version:
 
 <!-- BEGIN: generated-fact marker="repo-version" -->
-1.0.18
+1.0.19
 <!-- END: generated-fact marker="repo-version" -->
 
 ---
@@ -174,7 +174,7 @@ generated_facts:
     reflected_in: "README.md"
     marker: "rpc-methods"
 
-# 4) diagnostic_codes (opt-in, R-27): code doc coverage for extracted diagnostic / error codes (OD-06)
+# 4) diagnostic_codes (opt-in, R-27, since v1.0.19): code doc coverage for extracted diagnostic / error codes (OD-06)
 diagnostic_codes:
   - namespace: "error_code"
     extract: "python3 scripts/emit-codes.py"
@@ -711,7 +711,7 @@ generated_facts:
     reflected_in: "README.md"
     marker: "rpc-methods"
 
-# 4) diagnostic_codes（opt-in，R-27）：診斷碼／錯誤碼文件說明覆蓋（OD-06）
+# 4) diagnostic_codes（opt-in，R-27，自 v1.0.19 起）：診斷碼／錯誤碼文件說明覆蓋（OD-06）
 diagnostic_codes:
   - namespace: "error_code"
     extract: "python3 scripts/emit-codes.py"

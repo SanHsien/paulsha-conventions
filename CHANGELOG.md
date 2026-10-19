@@ -5,6 +5,11 @@
 格式基於 [Keep a Changelog 1.1.0](https://keepachangelog.com/zh-TW/1.1.0/)，
 本專案遵循 hamanpaul project policy v1.0.4。
 
+## [1.0.19] - 2026-10-19
+
+### Added
+- 新增 opt-in 規則 R-27：repo 以 `diagnostic_codes` 宣告抽取命令、說明文件與條目格式，凡抽取命令列出的診斷碼都必須在文件中有非空的意義與處置；規則本身不內建任何錯誤碼。
+
 ## [1.0.18] - 2026-09-30
 
 ### Fixed
