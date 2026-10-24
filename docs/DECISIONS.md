@@ -19,3 +19,13 @@
 - 驗證：pytest 的失敗集合前後相同（64 個，皆為 Windows 環境既有失敗），上游新增的 197 個測試通過；
   CI 的 `self-test` 在把上游 tag `v1.0.18` 推到本 fork 後轉綠（ledger 測試會解析該 tag）。
 - 水位：commit `65d9e43`、PR `#90`、issue `#87`。
+
+## 2026-10-24：同步上游 v1.0.19
+- 採用上游 `65d9e43..572cd48`（8 個 commit、20 個檔案）：新增 opt-in 規則 R-27（診斷碼文件說明覆蓋，PR #91）、
+  1.0.19 發版（#93）與 release ledger 補登（#94）。fork 沒有啟用 `diagnostic_codes`，行為不變。
+- 做法同上次：歷史無共同祖先，把差異當補丁套用（`git apply --3way`）。上游改的 `CLAUDE.md` 在本 fork
+  已由 `AGENTS.md` 取代（canonical），所以那份只手動更新版本字樣。
+- 水位：commit `572cd48`、PR `#94`、issue `#92`。上游仍開著的 issue（#83、#84、#85、#92）與本 fork 的
+  行為無關或尚未有解法，沒有採用。
+- 本次同步沒有碰上游的 CodeQL 告警檔（`policy_check/runtime_bundle/*`、`doc_drift/symbols.py`）；
+  上游 v1.0.19 也沒有修，處理另記。
