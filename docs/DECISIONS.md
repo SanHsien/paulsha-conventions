@@ -29,3 +29,15 @@
   行為無關或尚未有解法，沒有採用。
 - 本次同步沒有碰上游的 CodeQL 告警檔（`policy_check/runtime_bundle/*`、`doc_drift/symbols.py`）；
   上游 v1.0.19 也沒有修，處理另記。
+
+## 2026-10-24：CodeQL 4 個 high 的處理
+- `py/tarslip`（`runtime_bundle/builder.py`、`runtime_bundle/integrity.py`、`doc_drift/symbols.py`）：這三處都是
+  「Python 3.11.4 以上用 `filter="data"`，更舊的版本退回未過濾的 `extractall`」。上游 v1.0.19 沒有修，fork 端
+  直接改：新增 `policy_check/_safe_tar.py`，統一一律套用 `data` 過濾；3.11.4 以前不再退回未過濾解壓，而是
+  拒絕解壓（fail closed）；doc-drift 的 symbol 分析在這些版本上會直接拋錯而不是悄悄無過濾解壓。`requires-python` 仍是 `>=3.11`，要不要提高由維護者決定。原本的成員路徑預檢（絕對路徑、`..`、重複成員、非一般檔案類型）完全保留，
+  新增 `tests/test_safe_tar.py` 覆蓋路徑跳脫、符號連結跳脫、無過濾器時拒絕。
+- 這三個檔案原本與上游逐位元組相同；fork 與上游自此在這三處分歧，下次同步上游時這三處需要手動合併
+  （保留 `extract_all_data_filtered` 呼叫）。上游尚未修，要不要回報由維護者決定。
+- `py/clear-text-storage-sensitive-data`（`runtime_bundle/manager.py:280`）：資料流從啟用日誌的 `trusted`
+  記錄（SHA-256 摘要與事件）經快照還原寫回原本的啟動器／技能檔，沒有任何憑證；屬誤判，已在 GitHub 上以
+  「false positive」關閉並附說明，程式碼不改。

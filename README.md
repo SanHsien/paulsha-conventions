@@ -374,7 +374,7 @@ success exits 0.
 `policy-check` wheel, wheel-only dependency closure, `preflight-ci` skill,
 stdlib installer manager plus its shared verifier, manifest, and `SHA256SUMS`. Production builds accept
 only a clean canonical checkout at an annotated tag. The build host needs
-Python 3.11+, `build`, and pip; dependency versions are constrained by the
+Python 3.11.4+, `build`, and pip; dependency versions are constrained by the
 bundle-owned lock input, and every resolved dependency wheel (including
 transitive dependencies) must match one exact constraint:
 
@@ -923,7 +923,7 @@ merge base；否則會直接停止，不會用空 changed-files 集合繼續。
 `policy-runtime-bundle` 從 clean canonical annotated tag 建立單一不可變
 release unit，原子包含 engine wheel、wheel-only 相依閉包、`preflight-ci`
 skill、stdlib installer manager 與共用 verifier、manifest 與 `SHA256SUMS`。建置主機需有
-Python 3.11+、`build` 與 pip；相依版本由 bundle 自有 constraint 鎖定：
+Python 3.11.4+、`build` 與 pip；相依版本由 bundle 自有 constraint 鎖定：
 
 ```bash
 policy-runtime-bundle build \

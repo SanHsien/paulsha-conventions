@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import os
 import re
-import sys
 import tarfile
 import tempfile
 from pathlib import Path
 
+from policy_check._safe_tar import extract_all_data_filtered
 from policy_check.identity import DistributionIdentity, IdentityError, identity
 
 from .verification import (
@@ -100,12 +100,7 @@ def extract_verified_archive(
                 dir=destination,
             ) as temporary:
                 stage = Path(temporary)
-                if sys.version_info >= (3, 11, 4):
-                    bundle_tar.extractall(stage, filter="data")
-                else:
-                    # Members were already restricted to safe relative
-                    # regular-file or directory entries.
-                    bundle_tar.extractall(stage)
+                extract_all_data_filtered(bundle_tar, stage)
                 extracted = stage / root_name
                 load_and_verify_bundle(
                     extracted, expected_repository=_identity().engine_repo

@@ -8,6 +8,7 @@ import tempfile
 from pathlib import Path
 from typing import Iterable
 
+from policy_check._safe_tar import extract_all_data_filtered
 from policy_check.doc_drift import langs
 
 Identity = tuple[str, str, str, str]  # (language, kind, scope, name)
@@ -68,8 +69,5 @@ def symbols_at(repo_root: Path, sha: str) -> set[Identity]:
         extract_dir = Path(tmp) / "tree"
         extract_dir.mkdir()
         with tarfile.open(tar_path) as tf:
-            try:
-                tf.extractall(extract_dir, filter="data")  # 安全過濾（Py>=3.12 / 回填版）
-            except TypeError:
-                tf.extractall(extract_dir)  # 舊 Python 無 filter 參數
+            extract_all_data_filtered(tf, extract_dir)  # 一律套用 data 安全過濾
         return parse_ctags_json(_run_ctags(extract_dir))

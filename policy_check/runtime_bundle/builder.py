@@ -15,6 +15,7 @@ import zipfile
 from pathlib import Path, PurePosixPath
 from typing import Any, Sequence
 
+from policy_check._safe_tar import extract_all_data_filtered
 from policy_check.identity import identity
 
 from .integrity import (
@@ -232,11 +233,7 @@ def _tag_snapshot(repo: Path, tag: str, destination: Path) -> Path:
                     or any(part in {"", ".", ".."} for part in path.parts)
                 ):
                     raise BundleError("git archive contains an unsafe member")
-            if sys.version_info >= (3, 11, 4):
-                source_tar.extractall(snapshot, filter="data")
-            else:
-                # Members were already restricted to safe relative paths.
-                source_tar.extractall(snapshot)
+            extract_all_data_filtered(source_tar, snapshot)
     except (OSError, tarfile.TarError) as exc:
         raise BundleError("cannot extract clean tag snapshot") from exc
     return snapshot

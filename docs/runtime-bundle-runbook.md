@@ -45,7 +45,7 @@ policy-runtime-bundle build \
   --output-dir /path/release-output
 ```
 
-發行建置環境需提供 Python 3.11+、`build` 與 pip。安裝主機另需 `git`、
+發行建置環境需提供 Python 3.11.4+、`build` 與 pip。安裝主機另需 `git`、
 GNU `sha256sum` 與支援 JSON output 的 `universal-ctags`；installer 會依
 manifest prerequisites 在 staging 前驗證命令存在且可用。Python dependency 版本由
 `policy_check/runtime_bundle/constraints.txt` 鎖定；builder 會先檢查每個
@@ -55,7 +55,7 @@ constraint，未鎖的 transitive wheel 直接 fail-closed。接著正規化 arc
 mode/mtime/owner/order，並把 build interpreter、ABI 與 platform 寫入 manifest。
 constraint 檔也會包含在 wheel package data，避免 source/wheel 交付內容漂移。
 
-在任何 Python 3.11+ 主機以外部 digest 驗證 archive 與 member，再原子解包：
+在任何 Python 3.11.4+ 主機以外部 digest 驗證 archive 與 member，再原子解包：
 
 ```bash
 policy-runtime-bundle extract \
