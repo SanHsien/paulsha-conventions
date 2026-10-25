@@ -69,7 +69,7 @@ def _release(runtime_root: Path, version: str) -> Path:
     skill.mkdir(parents=True)
     runtime = artifact / "runtime" / "runtime_manager.py"
     runtime.parent.mkdir(parents=True)
-    runtime.write_text("# test runtime manager\n", encoding="utf-8")
+    runtime.write_text(f"# test runtime manager {version}\n", encoding="utf-8")
     manifest = {
         "runtime": {
             "path": "runtime/runtime_manager.py",
