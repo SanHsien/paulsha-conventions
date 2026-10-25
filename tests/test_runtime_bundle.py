@@ -839,6 +839,26 @@ def test_verified_release_rejects_venv_runtime_identity_tamper(
         manager._verified_release(tmp_path / "runtime", "1.0.13")
 
 
+def test_verified_release_rejects_marker_with_unexpected_fields(tmp_path: Path) -> None:
+    release = _install_fake_release(tmp_path, "1.0.13")
+    marker = json.loads((release / "VERIFIED").read_text(encoding="utf-8"))
+    marker["extra"] = "unexpected"
+    (release / "VERIFIED").write_text(json.dumps(marker), encoding="utf-8")
+
+    with pytest.raises(manager.RuntimeBundleError, match="marker does not match"):
+        manager._verified_release(tmp_path / "runtime", "1.0.13")
+
+
+def test_verified_release_rejects_marker_with_wrong_schema(tmp_path: Path) -> None:
+    release = _install_fake_release(tmp_path, "1.0.13")
+    marker = json.loads((release / "VERIFIED").read_text(encoding="utf-8"))
+    marker["schema_version"] = 2
+    (release / "VERIFIED").write_text(json.dumps(marker), encoding="utf-8")
+
+    with pytest.raises(manager.RuntimeBundleError, match="marker does not match"):
+        manager._verified_release(tmp_path / "runtime", "1.0.13")
+
+
 def test_activate_rejects_release_that_fails_installed_attestation(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

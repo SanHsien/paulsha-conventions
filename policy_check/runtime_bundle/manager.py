@@ -22,6 +22,15 @@ _ACTIVATION_JOURNAL = "activation.journal"
 _ACTIVATION_ANCHOR = "activation.journal.anchor"
 _ACTIVATION_SCHEMA_VERSION = 2
 _ACTIVATION_LAUNCHERS = ("preflight", "lifecycle")
+_VERIFIED_MARKER_FIELDS = frozenset(
+    {
+        "schema_version",
+        "policy_version",
+        "manifest_sha256",
+        "python_sha256",
+        "pyvenv_cfg_sha256",
+    }
+)
 _ACTIVATION_SNAPSHOT_FIELDS = frozenset(
     {"state", "current_version", "launchers", "skill_version"}
 )
@@ -1407,7 +1416,7 @@ def _verified_release(root: Path, version: str) -> Path:
     except ValueError as exc:
         raise RuntimeBundleError("installed release escapes runtime root") from exc
     verified = release / "VERIFIED"
-    if not release.is_dir() or not verified.is_file():
+    if not release.is_dir() or verified.is_symlink() or not verified.is_file():
         raise RuntimeBundleError(f"verified release is not installed: {version}")
     manifest = verify_bundle(
         release / "artifact",
@@ -1428,6 +1437,8 @@ def _verified_release(root: Path, version: str) -> Path:
         raise RuntimeBundleError("verified venv runtime identity is missing")
     if (
         not isinstance(marker, dict)
+        or set(marker) != _VERIFIED_MARKER_FIELDS
+        or marker.get("schema_version") != 1
         or marker.get("policy_version") != version
         or manifest.get("policy_version") != version
         or marker.get("manifest_sha256") != _sha256(release / "artifact" / "manifest.json")
