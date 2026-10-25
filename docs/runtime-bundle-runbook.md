@@ -99,6 +99,14 @@ filesystem/kernel 在多個 `os.replace` 之間終止後，下一次 `install`�
 都保留，stable launcher 的 manifest/manager digest anchor 與所有既有
 installed wheel、venv、`pyvenv.cfg`、bundle payload 重驗仍維持 fail-closed。
 <!-- doc-drift-ignore -->
+journal 不保存 `state.json` 或 launcher 的原始 bytes；它只記錄嚴格 schema 的
+版本 state、舊 release version，以及兩個 launcher／managed skill link 的存在狀態。
+recovery 必須重驗舊 release，並依這些 metadata 重新產生或移除 launcher、`current`
+與 managed skill link。state、既有 launcher 或 skill link 不符合此 canonical
+contract 時，會在 journal 寫入前拒絕；首次安裝如已有這些 managed 路徑也會拒絕，
+不能把任意本機內容持久化或在失敗回滾時刪除它。
+schema v1 journal 含 raw snapshot，新的 manager 一律 fail-closed；請以建立它的
+已驗證 runtime manager 先完成 recovery，再升級到 schema v2。<!-- doc-drift-ignore -->
 若 host 的 Python major/minor、implementation、ABI 或 platform 不等於 manifest 的
 `runtime_compatibility`，會在建立 staging 前 fail-closed；這避免把建置主機的
 ABI/platform-specific wheel closure 誤當成任意 Python 3.11+ 通用 bundle。

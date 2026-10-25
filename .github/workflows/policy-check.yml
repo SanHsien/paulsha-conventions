@@ -19,3 +19,6 @@ jobs:
       # Downstream repos must supply a full 40-char commit SHA pointing at
       # hamanpaul/paulsha-conventions (not a tag, not a short SHA).
       policy_engine_ref: ${{ github.sha }}
+      # Self-dogfood may run from a fork; check out the same owner/repository
+      # that supplied github.sha rather than treating that SHA as upstream.
+      policy_engine_repo: ${{ github.repository }}

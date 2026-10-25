@@ -38,6 +38,9 @@
   新增 `tests/test_safe_tar.py` 覆蓋路徑跳脫、符號連結跳脫、無過濾器時拒絕。
 - 這三個檔案原本與上游逐位元組相同；fork 與上游自此在這三處分歧，下次同步上游時這三處需要手動合併
   （保留 `extract_all_data_filtered` 呼叫）。上游尚未修，要不要回報由維護者決定。
-- `py/clear-text-storage-sensitive-data`（`runtime_bundle/manager.py:280`）：資料流從啟用日誌的 `trusted`
-  記錄（SHA-256 摘要與事件）經快照還原寫回原本的啟動器／技能檔，沒有任何憑證；屬誤判，已在 GitHub 上以
-  「false positive」關閉並附說明，程式碼不改。
+- `py/clear-text-storage-sensitive-data`（`runtime_bundle/manager.py`）：CodeQL 的 `trusted` 名稱 heuristic
+  沒有辨識到具體憑證，但 v1 journal 的確會保存 state／launcher 的任意 raw bytes，不能只靠 false positive
+  dismiss 結案。改為 schema v2：journal 只保存 canonical state metadata、已驗證舊 release version 與 managed
+  launcher／skill link presence；recovery 依 presence 重新產生或移除 state、launcher、current 與 skill link。
+  首次安裝遇到既有 managed 路徑在 journal 前 fail-closed。v1 raw-snapshot journal 一律 fail-closed，須先用建立它的
+  已驗證 runtime manager recovery。這是保密邊界修正，不是重新命名或排除掃描。

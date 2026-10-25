@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import base64
 import hashlib
 import importlib.util
 import json
@@ -21,7 +20,14 @@ from typing import Any, Sequence
 _ACTIVATION_STEPS = ("state", "current", "preflight", "lifecycle", "skill")
 _ACTIVATION_JOURNAL = "activation.journal"
 _ACTIVATION_ANCHOR = "activation.journal.anchor"
-_ACTIVATION_SCHEMA_VERSION = 1
+_ACTIVATION_SCHEMA_VERSION = 2
+_ACTIVATION_LAUNCHERS = ("preflight", "lifecycle")
+_ACTIVATION_SNAPSHOT_FIELDS = frozenset(
+    {"state", "current_version", "launchers", "skill_link"}
+)
+_ACTIVATION_STATE_FIELDS = frozenset(
+    {"schema_version", "current", "previous", "installed"}
+)
 
 
 # The source package and the vendored bootstrap use one stdlib-only verifier.
@@ -327,50 +333,129 @@ def _journal_paths(runtime_root: Path) -> tuple[Path, Path]:
     )
 
 
-def _encode_regular_snapshot(
-    snapshot: tuple[bytes, int] | None,
-) -> dict[str, Any] | None:
-    if snapshot is None:
-        return None
-    content, mode = snapshot
-    return {
-        "content": base64.b64encode(content).decode("ascii"),
-        "mode": mode,
-    }
+def _validate_activation_state(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict) or set(value) != _ACTIVATION_STATE_FIELDS:
+        raise RuntimeBundleError("activation state snapshot is invalid")
+    if type(value.get("schema_version")) is not int or value["schema_version"] != 1:
+        raise RuntimeBundleError("activation state snapshot is invalid")
+    current = value.get("current")
+    previous = value.get("previous")
+    installed = value.get("installed")
+    valid_installed = (
+        isinstance(installed, list)
+        and all(
+            isinstance(version, str) and VERSION_RE.fullmatch(version)
+            for version in installed
+        )
+        and installed == sorted(set(installed))
+    )
+    if (
+        not isinstance(current, str)
+        or VERSION_RE.fullmatch(current) is None
+        or (
+            previous is not None
+            and (
+                not isinstance(previous, str)
+                or VERSION_RE.fullmatch(previous) is None
+            )
+        )
+        or not valid_installed
+        or current not in installed
+        or (previous is not None and previous not in installed)
+    ):
+        raise RuntimeBundleError("activation state snapshot is invalid")
+    return value
 
 
-def _decode_regular_snapshot(value: Any) -> tuple[bytes, int] | None:
-    if value is None:
+def _snapshot_activation_state(path: Path) -> dict[str, Any] | None:
+    if path.is_symlink() or (path.exists() and not path.is_file()):
+        raise RuntimeBundleError("activation state snapshot is invalid")
+    if not path.exists():
         return None
-    if not isinstance(value, dict):
-        raise RuntimeBundleError("activation journal snapshot is invalid")
-    content = value.get("content")
-    mode = value.get("mode")
-    if not isinstance(content, str) or not isinstance(mode, int) or not 0 <= mode <= 0o777:
-        raise RuntimeBundleError("activation journal snapshot is invalid")
     try:
-        decoded = base64.b64decode(content.encode("ascii"), validate=True)
-    except (ValueError, UnicodeError) as exc:
-        raise RuntimeBundleError("activation journal snapshot is invalid") from exc
-    return decoded, mode
+        state = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise RuntimeBundleError("activation state snapshot is invalid") from exc
+    return _validate_activation_state(state)
+
+
+def _snapshot_current_release(runtime_root: Path) -> Path | None:
+    current = runtime_root / "current"
+    if not current.exists() and not current.is_symlink():
+        return None
+    if not current.is_symlink():
+        raise RuntimeBundleError("activation current snapshot is invalid")
+    try:
+        target = current.resolve(strict=True)
+        releases = (runtime_root / "releases").resolve()
+        target.relative_to(releases)
+    except (OSError, ValueError) as exc:
+        raise RuntimeBundleError("activation current snapshot is invalid") from exc
+    if (
+        target.parent != releases
+        or target.is_symlink()
+        or not target.is_dir()
+        or VERSION_RE.fullmatch(target.name) is None
+    ):
+        raise RuntimeBundleError("activation current snapshot is invalid")
+    return target
+
+
+def _snapshot_managed_launchers(runtime_root: Path, release: Path) -> dict[str, bool]:
+    presence: dict[str, bool] = {}
+    for name, (path, text) in _launcher_contents(runtime_root, release).items():
+        if path.is_symlink() or (path.exists() and not path.is_file()):
+            raise RuntimeBundleError(f"managed launcher is invalid: {name}")
+        presence[name] = path.exists()
+        if not path.exists():
+            continue
+        if path.read_bytes() != text.encode("utf-8"):
+            raise RuntimeBundleError(f"managed launcher does not match verified release: {name}")
+    return presence
+
+
+def _snapshot_managed_skill_target(skill_target: Path, release: Path) -> bool:
+    if not skill_target.exists() and not skill_target.is_symlink():
+        return False
+    expected = release / "artifact" / "skills" / "preflight-ci"
+    if not _symlink_points_to(skill_target, expected):
+        raise RuntimeBundleError("managed skill link does not match current release")
+    return True
+
+
+def _reject_first_install_strays(runtime_root: Path, skill_target: Path) -> None:
+    managed_paths = [
+        runtime_root / "bin" / "policy-preflight",
+        runtime_root / "bin" / "policy-runtime-bundle",
+        skill_target,
+    ]
+    if any(path.exists() or path.is_symlink() for path in managed_paths):
+        raise RuntimeBundleError("first-install snapshot has stray managed paths")
 
 
 def _activation_snapshot(
     runtime_root: Path,
     skill_target: Path,
 ) -> dict[str, Any]:
+    state = _snapshot_activation_state(runtime_root / "state.json")
+    current = _snapshot_current_release(runtime_root)
+    if current is None:
+        if state is not None:
+            raise RuntimeBundleError("activation state snapshot has no current release")
+        _reject_first_install_strays(runtime_root, skill_target)
+        return {
+            "state": None,
+            "current_version": None,
+            "launchers": {name: False for name in _ACTIVATION_LAUNCHERS},
+            "skill_link": False,
+        }
+    if state is None or state["current"] != current.name:
+        raise RuntimeBundleError("activation state snapshot does not match current release")
     return {
-        "state": _encode_regular_snapshot(
-            _snapshot_regular_file(runtime_root / "state.json")
-        ),
-        "current": _snapshot_symlink(runtime_root / "current"),
-        "preflight": _encode_regular_snapshot(
-            _snapshot_regular_file(runtime_root / "bin" / "policy-preflight")
-        ),
-        "lifecycle": _encode_regular_snapshot(
-            _snapshot_regular_file(runtime_root / "bin" / "policy-runtime-bundle")
-        ),
-        "skill": _snapshot_symlink(skill_target),
+        "state": state,
+        "current_version": current.name,
+        "launchers": _snapshot_managed_launchers(runtime_root, current),
+        "skill_link": _snapshot_managed_skill_target(skill_target, current),
     }
 
 
@@ -456,9 +541,14 @@ def _read_activation_records(runtime_root: Path) -> list[dict[str, Any]] | None:
         if not isinstance(record, dict):
             raise RuntimeBundleError("activation journal record is invalid")
         digest = record.get("digest")
+        if record.get("schema_version") != _ACTIVATION_SCHEMA_VERSION:
+            if record.get("schema_version") == 1:
+                raise RuntimeBundleError(
+                    "activation journal schema is unsupported; recover with the matching runtime manager"
+                )
+            raise RuntimeBundleError("activation journal record is invalid")
         if (
-            record.get("schema_version") != _ACTIVATION_SCHEMA_VERSION
-            or record.get("sequence") != expected_sequence
+            record.get("sequence") != expected_sequence
             or record.get("previous_digest") != previous_digest
             or not isinstance(record.get("event"), str)
             or not isinstance(record.get("payload"), dict)
@@ -477,10 +567,10 @@ def _read_activation_records(runtime_root: Path) -> list[dict[str, Any]] | None:
             anchor_index = index
     if anchor_index is None:
         raise RuntimeBundleError("activation journal anchor does not match journal")
-    trusted = records[: anchor_index + 1]
-    if not trusted or trusted[0].get("event") != "begin":
+    validated_records = records[: anchor_index + 1]
+    if not validated_records or validated_records[0].get("event") != "begin":
         raise RuntimeBundleError("activation journal does not begin with activation")
-    return trusted
+    return validated_records
 
 
 def _clear_activation_journal(runtime_root: Path) -> None:
@@ -753,12 +843,10 @@ def _attest_installed_release(release: Path) -> None:
     )
 
 
-def _install_launcher(
+def _launcher_contents(
     root: Path,
     release: Path,
-    *,
-    only: str | None = None,
-) -> None:
+) -> dict[str, tuple[Path, str]]:
     expected_manifest_sha256 = _sha256(
         release / "artifact" / "manifest.json"
     )
@@ -789,7 +877,6 @@ def _install_launcher(
         'echo "ERROR: active runtime manager checksum mismatch" >&2; exit 2; }\n'
     )
     launcher = root / "bin" / "policy-preflight"
-    launcher.parent.mkdir(parents=True, exist_ok=True)
     preflight_text = (
         "#!/usr/bin/env bash\n"
         "set -euo pipefail\n"
@@ -839,10 +926,19 @@ def _install_launcher(
         + trust_prelude
         + 'exec "$PYTHON_BIN" -I -B "$MANAGER" "$COMMAND" --root "$RUNTIME_ROOT" "$@"\n'
     )
-    launchers = {
+    return {
         "preflight": (launcher, preflight_text),
         "lifecycle": (lifecycle, lifecycle_text),
     }
+
+
+def _install_launcher(
+    root: Path,
+    release: Path,
+    *,
+    only: str | None = None,
+) -> None:
+    launchers = _launcher_contents(root, release)
     if only is not None and only not in launchers:
         raise RuntimeBundleError(f"unknown launcher activation step: {only}")
     selected = (
@@ -859,20 +955,45 @@ def _restore_activation_snapshot(
     skill_target: Path,
     snapshots: dict[str, Any],
 ) -> None:
-    _restore_symlink(skill_target, snapshots["skill"])
-    _restore_regular_file(
-        runtime_root / "bin" / "policy-runtime-bundle",
-        _decode_regular_snapshot(snapshots["lifecycle"]),
-    )
-    _restore_regular_file(
-        runtime_root / "bin" / "policy-preflight",
-        _decode_regular_snapshot(snapshots["preflight"]),
-    )
-    _restore_symlink(runtime_root / "current", snapshots["current"])
-    _restore_regular_file(
-        runtime_root / "state.json",
-        _decode_regular_snapshot(snapshots["state"]),
-    )
+    if set(snapshots) != _ACTIVATION_SNAPSHOT_FIELDS:
+        raise RuntimeBundleError("activation journal snapshot is invalid")
+    state = snapshots["state"]
+    current_version = snapshots["current_version"]
+    launchers = snapshots["launchers"]
+    skill_link = snapshots["skill_link"]
+    if (
+        not isinstance(launchers, dict)
+        or set(launchers) != set(_ACTIVATION_LAUNCHERS)
+        or not all(isinstance(present, bool) for present in launchers.values())
+        or not isinstance(skill_link, bool)
+    ):
+        raise RuntimeBundleError("activation journal snapshot is invalid")
+    if current_version is None:
+        if state is not None or any(launchers.values()) or skill_link:
+            raise RuntimeBundleError("activation journal snapshot is invalid")
+        _restore_symlink(skill_target, None)
+        _restore_regular_file(runtime_root / "bin" / "policy-runtime-bundle", None)
+        _restore_regular_file(runtime_root / "bin" / "policy-preflight", None)
+        _restore_symlink(runtime_root / "current", None)
+        _restore_regular_file(runtime_root / "state.json", None)
+        return
+    if not isinstance(current_version, str) or VERSION_RE.fullmatch(current_version) is None:
+        raise RuntimeBundleError("activation journal snapshot is invalid")
+    state = _validate_activation_state(state)
+    if state["current"] != current_version:
+        raise RuntimeBundleError("activation journal snapshot is invalid")
+    release = _verified_release(runtime_root, current_version)
+    for name, present in launchers.items():
+        if present:
+            _install_launcher(runtime_root, release, only=name)
+        else:
+            _restore_regular_file(_launcher_contents(runtime_root, release)[name][0], None)
+    if skill_link:
+        _atomic_symlink(release / "artifact" / "skills" / "preflight-ci", skill_target)
+    else:
+        _restore_symlink(skill_target, None)
+    _atomic_symlink(release, runtime_root / "current")
+    _write_json_atomic(runtime_root / "state.json", state)
 
 
 def recover(root: Path, skill_target: Path | None = None) -> bool:
@@ -890,7 +1011,7 @@ def recover(root: Path, skill_target: Path | None = None) -> bool:
         or begin.get("steps") != list(_ACTIVATION_STEPS)
         or not isinstance(begin.get("release"), str)
         or not isinstance(snapshots, dict)
-        or set(snapshots) != set(_ACTIVATION_STEPS)
+        or set(snapshots) != _ACTIVATION_SNAPSHOT_FIELDS
     ):
         raise RuntimeBundleError("activation journal ownership is invalid")
     journal_skill_target = Path(recorded_skill_target)
@@ -1367,12 +1488,26 @@ def activate(root: Path, skill_target: Path, version: str) -> None:
     )
     if current == version and links_match:
         return
-    new_state = dict(state)
-    if current != version:
+    if not state:
+        new_state: dict[str, Any] = {
+            "schema_version": 1,
+            "current": version,
+            "previous": None,
+            "installed": [version],
+        }
+    else:
+        new_state = dict(state)
+    if state and current != version:
         previous = current
         new_state.update(
             {"schema_version": 1, "current": version, "previous": previous}
         )
+        installed = new_state.get("installed")
+        if isinstance(installed, list) and all(
+            isinstance(item, str) and VERSION_RE.fullmatch(item)
+            for item in installed
+        ):
+            new_state["installed"] = sorted(set(installed) | {version})
     _switch_active_release(runtime_root, skill_target, release, new_state)
 
 

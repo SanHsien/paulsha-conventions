@@ -9,10 +9,82 @@ Spec reference: §4.1 Reusable workflow structure
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
+import subprocess
 
 import pytest
 import yaml
+
+
+def _git(cwd: Path, *args: str) -> str:
+    result = subprocess.run(
+        ["git", *args],
+        cwd=cwd,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.strip()
+
+
+def test_pr_head_and_base_binding_uses_event_shas_not_advanced_origin_main(tmp_path):
+    """Execute the workflow binding script against an origin/main that advanced
+    after the PR base commit; preflight must see the event's exact base and head."""
+    workflow = yaml.safe_load(
+        (Path(__file__).parent.parent / ".github" / "workflows" / "self-test.yml").read_text(
+            encoding="utf-8"
+        )
+    )
+    steps = workflow["jobs"]["pytest"]["steps"]
+    binding = next(step for step in steps if step.get("name") == "Bind checkout to pull request head")
+    assert binding["env"]["PR_BASE_SHA"] == "${{ github.event.pull_request.base.sha }}"
+    assert "refs/remotes/origin/$PR_BASE_REF" in binding["run"]
+
+    if os.name == "nt":
+        pytest.skip("workflow binding script requires a POSIX bash runner")
+
+    origin = tmp_path / "origin.git"
+    seed = tmp_path / "seed"
+    subprocess.run(["git", "init", "--bare", str(origin)], check=True)
+    subprocess.run(["git", "init", "-b", "main", str(seed)], check=True)
+    _git(seed, "config", "user.email", "test@example.invalid")
+    _git(seed, "config", "user.name", "Workflow Test")
+    (seed / "state.txt").write_text("base\n", encoding="utf-8")
+    _git(seed, "add", "state.txt")
+    _git(seed, "commit", "-m", "base")
+    base_sha = _git(seed, "rev-parse", "HEAD")
+    _git(seed, "branch", "feature")
+    (seed / "state.txt").write_text("advanced main\n", encoding="utf-8")
+    _git(seed, "commit", "-am", "advance main")
+    _git(seed, "checkout", "feature")
+    (seed / "feature.txt").write_text("head\n", encoding="utf-8")
+    _git(seed, "add", "feature.txt")
+    _git(seed, "commit", "-m", "feature head")
+    head_sha = _git(seed, "rev-parse", "HEAD")
+    _git(seed, "remote", "add", "origin", str(origin))
+    _git(seed, "push", "origin", "main", "feature")
+
+    checkout = tmp_path / "checkout"
+    subprocess.run(["git", "clone", str(origin), str(checkout)], check=True)
+    environment = dict(os.environ)
+    environment.update(
+        {
+            "PR_BASE_REF": "main",
+            "PR_BASE_SHA": base_sha,
+            "PR_HEAD_REF": "feature",
+            "PR_HEAD_SHA": head_sha,
+        }
+    )
+    subprocess.run(
+        ["bash", "-c", binding["run"]],
+        cwd=checkout,
+        env=environment,
+        check=True,
+    )
+
+    assert _git(checkout, "rev-parse", "HEAD") == head_sha
+    assert _git(checkout, "rev-parse", "refs/remotes/origin/main") == base_sha
 
 
 def test_reusable_workflow_interface_contract():

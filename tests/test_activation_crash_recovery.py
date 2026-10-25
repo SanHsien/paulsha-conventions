@@ -101,10 +101,7 @@ class ActivationCrashRecoveryTests(unittest.TestCase):
                     "installed": ["1.0.13", "1.0.14"],
                 }
                 state_path = root / "state.json"
-                state_path.write_text(
-                    json.dumps(old_state, sort_keys=True) + "\n",
-                    encoding="utf-8",
-                )
+                manager._write_json_atomic(state_path, old_state)
                 manager._install_launcher(root, old)
                 before = {
                     "state": state_path.read_bytes(),
@@ -135,7 +132,8 @@ class ActivationCrashRecoveryTests(unittest.TestCase):
                 self.assertTrue((root / "activation.journal").is_file())
                 self.assertTrue((root / "activation.journal.anchor").is_file())
 
-                self.assertTrue(manager.recover(root, skill))
+                with mock.patch.object(manager, "_verified_release", return_value=old):
+                    self.assertTrue(manager.recover(root, skill))
                 self.assertEqual(state_path.read_bytes(), before["state"])
                 self.assertEqual(os.readlink(root / "current"), before["current"])
                 self.assertEqual(os.readlink(skill), before["skill"])
@@ -149,6 +147,34 @@ class ActivationCrashRecoveryTests(unittest.TestCase):
                 )
                 self.assertFalse((root / "activation.journal").exists())
                 self.assertFalse((root / "activation.journal.anchor").exists())
+
+    def test_unverified_old_release_is_rejected_before_restore_writes(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "runtime"
+            old = _release(root, "1.0.13")
+            skill = Path(temporary) / "skills" / "preflight-ci"
+            state = {
+                "schema_version": 1,
+                "current": old.name,
+                "previous": None,
+                "installed": [old.name],
+            }
+            snapshots = {
+                "state": state,
+                "current_version": old.name,
+                "launchers": {"preflight": False, "lifecycle": False},
+                "skill_link": False,
+            }
+
+            def no_restore_write(*_args, **_kwargs):
+                self.fail("unverified release must fail before restore writes")
+
+            with mock.patch.object(manager, "_atomic_symlink", side_effect=no_restore_write), \
+                    mock.patch.object(manager, "_install_launcher", side_effect=no_restore_write), \
+                    mock.patch.object(manager, "_restore_regular_file", side_effect=no_restore_write), \
+                    mock.patch.object(manager, "_write_json_atomic", side_effect=no_restore_write):
+                with self.assertRaises(manager.RuntimeBundleError):
+                    manager._restore_activation_snapshot(root, skill, snapshots)
 
 
 class AtomicWriteFsyncTests(unittest.TestCase):
@@ -314,7 +340,12 @@ class RecoverTrustBoundaryTests(unittest.TestCase):
             trusted_default = Path(temporary) / "trusted" / "skills" / "preflight-ci"
             decoy_target = Path(temporary) / "attacker-writable" / "payload"
 
-            snapshots = {step: None for step in manager._ACTIVATION_STEPS}
+            snapshots = {
+                "state": None,
+                "current_version": None,
+                "launchers": {"preflight": False, "lifecycle": False},
+                "skill_link": False,
+            }
             journal_path, anchor_path = manager._journal_paths(root)
             manager._append_activation_event(
                 journal_path,
@@ -334,7 +365,10 @@ class RecoverTrustBoundaryTests(unittest.TestCase):
             with mock.patch.object(
                 manager, "_default_skill_target", return_value=trusted_default
             ):
-                with self.assertRaises(manager.RuntimeBundleError):
+                with self.assertRaisesRegex(
+                    manager.RuntimeBundleError,
+                    "activation journal skill target does not match the trusted recovery target",
+                ):
                     manager.recover(root)
 
             self.assertFalse(decoy_target.exists())
@@ -400,7 +434,12 @@ class RecoverTrustBoundaryTests(unittest.TestCase):
             recorded_target = Path(temporary) / "skills" / "preflight-ci"
             requested_target = Path(temporary) / "other-skills" / "preflight-ci"
 
-            snapshots = {step: None for step in manager._ACTIVATION_STEPS}
+            snapshots = {
+                "state": None,
+                "current_version": None,
+                "launchers": {"preflight": False, "lifecycle": False},
+                "skill_link": False,
+            }
             journal_path, anchor_path = manager._journal_paths(root)
             manager._append_activation_event(
                 journal_path,
@@ -417,7 +456,10 @@ class RecoverTrustBoundaryTests(unittest.TestCase):
                 },
             )
 
-            with self.assertRaises(manager.RuntimeBundleError):
+            with self.assertRaisesRegex(
+                manager.RuntimeBundleError,
+                "activation journal skill target does not match the trusted recovery target",
+            ):
                 manager.recover(root, requested_target)
 
             self.assertFalse(requested_target.exists())
@@ -439,7 +481,12 @@ class RecoverTrustBoundaryTests(unittest.TestCase):
             old = _release(root, "1.0.13")
             recorded_target = Path(temporary) / "custom-skills" / "preflight-ci"
 
-            snapshots = {step: None for step in manager._ACTIVATION_STEPS}
+            snapshots = {
+                "state": None,
+                "current_version": None,
+                "launchers": {"preflight": False, "lifecycle": False},
+                "skill_link": False,
+            }
             journal_path, anchor_path = manager._journal_paths(root)
             sequence, digest = manager._append_activation_event(
                 journal_path,
