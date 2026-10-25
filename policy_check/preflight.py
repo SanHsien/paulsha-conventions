@@ -983,11 +983,16 @@ def _run_steps(
             all_passed = False
             continue
         ok = result.returncode == 0
+        detail = f"exit={result.returncode}"
+        if not ok:
+            diagnostic = _bounded_command_diagnostic(result)
+            if diagnostic:
+                detail += f"; output={diagnostic}"
         _gate_result(
             step.name,
             "PASS" if ok else "FAIL",
             started,
-            f"exit={result.returncode}",
+            detail,
         )
         all_passed = all_passed and ok
     if not policy_only and executed == 0:

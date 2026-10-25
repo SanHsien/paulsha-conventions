@@ -402,7 +402,8 @@ class RecoverTrustBoundaryTests(unittest.TestCase):
             (root / "current").symlink_to(old)
             manager._install_launcher(root, old)
 
-            snapshots = manager._activation_snapshot(root, trusted_default)
+            with mock.patch.object(manager, "_verified_release", return_value=old):
+                snapshots = manager._activation_snapshot(root, trusted_default)
             journal_path, anchor_path = manager._journal_paths(root)
             manager._append_activation_event(
                 journal_path,

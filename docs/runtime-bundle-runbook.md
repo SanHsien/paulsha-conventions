@@ -108,6 +108,11 @@ contract 時，會在 journal 寫入前拒絕；首次安裝如已有這些 mana
 不能把任意本機內容持久化或在失敗回滾時刪除它。
 schema v1 journal 含 raw snapshot，新的 manager 一律 fail-closed；請以建立它的
 已驗證 runtime manager 先完成 recovery，再升級到 schema v2。<!-- doc-drift-ignore -->
+啟用前的 snapshot 會對 `state.json` 的 `installed` 每個 release 重跑完整驗證；任一已安裝
+release 驗證失敗（例如主機 Python 升版改變 `python_sha256`）時，`install`、`activate`、
+`rollback` 都會在寫 journal 前中止。處理方式：以 `--force-reinstall` 重裝該 release，
+或先解除安裝不再需要的舊 release。v1 journal 的 recovery 需直接呼叫舊 release 的 manager，
+例如 `python3 -I <root>/releases/<舊版>/artifact/runtime/runtime_manager.py recover --root <root>`。
 source preflight 只接受 distribution metadata 封閉列出的 checkout repo，並報告實際 repo 與
 full SHA；這個 source-only allowlist 不改變 runtime bundle/artifact 的 canonical upstream identity，
 目標專案 manifest 也不能自行放寬它。<!-- doc-drift-ignore -->
