@@ -62,16 +62,6 @@ jobs:
           npm install --global @fission-ai/openspec@1.15.0
           openspec --version
 
-      - name: Checkout canonical preflight engine
-        if: github.event_name == 'pull_request'
-        shell: bash
-        run: |
-          ENGINE_ROOT="$RUNNER_TEMP/paulsha-conventions"
-          git clone --no-checkout https://github.com/hamanpaul/paulsha-conventions.git "$ENGINE_ROOT"
-          test "$(git -C "$ENGINE_ROOT" remote get-url origin)" = "https://github.com/hamanpaul/paulsha-conventions.git"
-          git -C "$ENGINE_ROOT" checkout --detach 2dcf2f815afeddc477c1cacc33df9beb06ae14fb
-          test "$(git -C "$ENGINE_ROOT" rev-parse HEAD)" = "2dcf2f815afeddc477c1cacc33df9beb06ae14fb"
-
       - name: Run canonical preflight for pull request
         if: github.event_name == 'pull_request'
         shell: bash
@@ -93,7 +83,7 @@ jobs:
           Path(os.environ["PR_BODY_FILE"]).write_text(body, encoding="utf-8")
           PY
           cd "$GITHUB_WORKSPACE"
-          bash "$RUNNER_TEMP/paulsha-conventions/skills/preflight-ci/scripts/preflight.sh" \
+          bash "$GITHUB_WORKSPACE/skills/preflight-ci/scripts/preflight.sh" \
             --offline \
             --pr-title "$PR_TITLE" \
             --pr-body-file "$PR_BODY_FILE" \

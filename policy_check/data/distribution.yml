@@ -5,3 +5,6 @@ engine_repo: hamanpaul/paulsha-conventions
 remote_base: https://github.com
 distribution_name: paulsha-conventions
 provider: github
+# 只供 source-checkout preflight；bundle/runtime artifact identity 仍是上游 engine_repo。
+source_checkout_repos:
+  - SanHsien/paulsha-conventions

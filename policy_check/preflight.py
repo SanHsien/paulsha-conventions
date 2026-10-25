@@ -453,7 +453,7 @@ def _version_matches(installed: str | None, policy_version: str) -> bool:
     )
 
 
-def _is_canonical_checkout(repo_root: Path) -> bool:
+def _checkout_repository(repo_root: Path, repositories: tuple[str, ...]) -> str | None:
     try:
         remote = _run_command(
             ["git", "remote", "get-url", "origin"],
@@ -461,9 +461,19 @@ def _is_canonical_checkout(repo_root: Path) -> bool:
             timeout=30,
         )
     except (OSError, UnicodeError, subprocess.TimeoutExpired):
-        return False
+        return None
+    if remote.returncode != 0:
+        return None
     normalized_remote = remote.stdout.strip().removesuffix(".git")
-    return remote.returncode == 0 and normalized_remote in _identity().remote_urls()
+    identity = _identity()
+    for repository in repositories:
+        if normalized_remote in identity.remote_urls_for(repository):
+            return repository
+    return None
+
+
+def _is_canonical_checkout(repo_root: Path) -> bool:
+    return _checkout_repository(repo_root, (_identity().engine_repo,)) is not None
 
 
 def _source_engine(
@@ -484,9 +494,13 @@ def _source_engine(
         )
     if not (engine_root / "policy_check" / "preflight.py").is_file():
         raise PreflightGateError("source engine is missing policy_check/preflight.py")
-    if not _is_canonical_checkout(engine_root):
+    source_repo = _checkout_repository(
+        engine_root,
+        _identity().allowed_source_repos(),
+    )
+    if source_repo is None:
         raise PreflightGateError(
-            f"source engine must be a checkout of {engine_repo}"
+            f"source engine must be a checkout of one of {_identity().allowed_source_repos()}"
         )
     version_file = engine_root / "VERSION"
     if not version_file.is_file():
@@ -513,7 +527,7 @@ def _source_engine(
         raise PreflightGateError("source engine HEAD is not a full SHA")
     return EngineIdentity(
         "source",
-        f"{display_prefix}:{engine_repo}@{head}",
+        f"{display_prefix}:{source_repo}@{head}",
         engine_root,
     )
 

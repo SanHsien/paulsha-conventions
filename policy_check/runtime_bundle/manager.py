@@ -23,7 +23,7 @@ _ACTIVATION_ANCHOR = "activation.journal.anchor"
 _ACTIVATION_SCHEMA_VERSION = 2
 _ACTIVATION_LAUNCHERS = ("preflight", "lifecycle")
 _ACTIVATION_SNAPSHOT_FIELDS = frozenset(
-    {"state", "current_version", "launchers", "skill_link"}
+    {"state", "current_version", "launchers", "skill_version"}
 )
 _ACTIVATION_STATE_FIELDS = frozenset(
     {"schema_version", "current", "previous", "installed"}
@@ -401,26 +401,37 @@ def _snapshot_current_release(runtime_root: Path) -> Path | None:
     return target
 
 
-def _snapshot_managed_launchers(runtime_root: Path, release: Path) -> dict[str, bool]:
-    presence: dict[str, bool] = {}
-    for name, (path, text) in _launcher_contents(runtime_root, release).items():
+def _snapshot_managed_launchers(
+    runtime_root: Path, releases: dict[str, Path]
+) -> dict[str, str | None]:
+    presence: dict[str, str | None] = {}
+    paths = _launcher_contents(runtime_root, next(iter(releases.values())))
+    for name, (path, _text) in paths.items():
         if path.is_symlink() or (path.exists() and not path.is_file()):
             raise RuntimeBundleError(f"managed launcher is invalid: {name}")
-        presence[name] = path.exists()
         if not path.exists():
+            presence[name] = None
             continue
-        if path.read_bytes() != text.encode("utf-8"):
+        matches = [
+            version for version, release in releases.items()
+            if path.read_bytes() == _launcher_contents(runtime_root, release)[name][1].encode("utf-8")
+        ]
+        if len(matches) != 1:
             raise RuntimeBundleError(f"managed launcher does not match verified release: {name}")
+        presence[name] = matches[0]
     return presence
 
 
-def _snapshot_managed_skill_target(skill_target: Path, release: Path) -> bool:
+def _snapshot_managed_skill_target(skill_target: Path, releases: dict[str, Path]) -> str | None:
     if not skill_target.exists() and not skill_target.is_symlink():
-        return False
-    expected = release / "artifact" / "skills" / "preflight-ci"
-    if not _symlink_points_to(skill_target, expected):
-        raise RuntimeBundleError("managed skill link does not match current release")
-    return True
+        return None
+    matches = [
+        version for version, release in releases.items()
+        if _symlink_points_to(skill_target, release / "artifact" / "skills" / "preflight-ci")
+    ]
+    if len(matches) != 1:
+        raise RuntimeBundleError("managed skill link does not match a verified release")
+    return matches[0]
 
 
 def _reject_first_install_strays(runtime_root: Path, skill_target: Path) -> None:
@@ -439,23 +450,25 @@ def _activation_snapshot(
 ) -> dict[str, Any]:
     state = _snapshot_activation_state(runtime_root / "state.json")
     current = _snapshot_current_release(runtime_root)
-    if current is None:
-        if state is not None:
+    if state is None:
+        if current is not None:
             raise RuntimeBundleError("activation state snapshot has no current release")
         _reject_first_install_strays(runtime_root, skill_target)
         return {
             "state": None,
             "current_version": None,
-            "launchers": {name: False for name in _ACTIVATION_LAUNCHERS},
-            "skill_link": False,
+            "launchers": {name: None for name in _ACTIVATION_LAUNCHERS},
+            "skill_version": None,
         }
-    if state is None or state["current"] != current.name:
-        raise RuntimeBundleError("activation state snapshot does not match current release")
+    releases = {version: _verified_release(runtime_root, version) for version in state["installed"]}
+    current_version = None if current is None else current.name
+    if current is not None and releases.get(current.name) != current:
+        raise RuntimeBundleError("activation current snapshot is not verified")
     return {
         "state": state,
-        "current_version": current.name,
-        "launchers": _snapshot_managed_launchers(runtime_root, current),
-        "skill_link": _snapshot_managed_skill_target(skill_target, current),
+        "current_version": current_version,
+        "launchers": _snapshot_managed_launchers(runtime_root, releases),
+        "skill_version": _snapshot_managed_skill_target(skill_target, releases),
     }
 
 
@@ -960,39 +973,54 @@ def _restore_activation_snapshot(
     state = snapshots["state"]
     current_version = snapshots["current_version"]
     launchers = snapshots["launchers"]
-    skill_link = snapshots["skill_link"]
+    skill_version = snapshots["skill_version"]
     if (
         not isinstance(launchers, dict)
         or set(launchers) != set(_ACTIVATION_LAUNCHERS)
-        or not all(isinstance(present, bool) for present in launchers.values())
-        or not isinstance(skill_link, bool)
+        or not all(version is None or (isinstance(version, str) and VERSION_RE.fullmatch(version)) for version in launchers.values())
+        or not (skill_version is None or (isinstance(skill_version, str) and VERSION_RE.fullmatch(skill_version)))
     ):
         raise RuntimeBundleError("activation journal snapshot is invalid")
     if current_version is None:
-        if state is not None or any(launchers.values()) or skill_link:
+        if state is None:
+            if any(launchers.values()) or skill_version is not None:
+                raise RuntimeBundleError("activation journal snapshot is invalid")
+            _restore_symlink(skill_target, None)
+            _restore_regular_file(runtime_root / "bin" / "policy-runtime-bundle", None)
+            _restore_regular_file(runtime_root / "bin" / "policy-preflight", None)
+            _restore_symlink(runtime_root / "current", None)
+            _restore_regular_file(runtime_root / "state.json", None)
+            return
+        current_release = None
+    else:
+        if not isinstance(current_version, str) or VERSION_RE.fullmatch(current_version) is None:
             raise RuntimeBundleError("activation journal snapshot is invalid")
-        _restore_symlink(skill_target, None)
-        _restore_regular_file(runtime_root / "bin" / "policy-runtime-bundle", None)
-        _restore_regular_file(runtime_root / "bin" / "policy-preflight", None)
-        _restore_symlink(runtime_root / "current", None)
-        _restore_regular_file(runtime_root / "state.json", None)
-        return
-    if not isinstance(current_version, str) or VERSION_RE.fullmatch(current_version) is None:
-        raise RuntimeBundleError("activation journal snapshot is invalid")
     state = _validate_activation_state(state)
-    if state["current"] != current_version:
-        raise RuntimeBundleError("activation journal snapshot is invalid")
-    release = _verified_release(runtime_root, current_version)
-    for name, present in launchers.items():
-        if present:
-            _install_launcher(runtime_root, release, only=name)
+    referenced_versions = {
+        version
+        for version in (*launchers.values(), skill_version, current_version)
+        if version is not None
+    }
+    verified_releases = {
+        version: _verified_release(runtime_root, version) for version in referenced_versions
+    }
+    current_release = None if current_version is None else verified_releases[current_version]
+    for name, version in launchers.items():
+        if version is not None:
+            _install_launcher(runtime_root, verified_releases[version], only=name)
         else:
-            _restore_regular_file(_launcher_contents(runtime_root, release)[name][0], None)
-    if skill_link:
-        _atomic_symlink(release / "artifact" / "skills" / "preflight-ci", skill_target)
+            _restore_regular_file(runtime_root / "bin" / ("policy-preflight" if name == "preflight" else "policy-runtime-bundle"), None)
+    if skill_version is not None:
+        _restore_symlink(
+            skill_target,
+            str(verified_releases[skill_version] / "artifact" / "skills" / "preflight-ci"),
+        )
     else:
         _restore_symlink(skill_target, None)
-    _atomic_symlink(release, runtime_root / "current")
+    if current_release is None:
+        _restore_symlink(runtime_root / "current", None)
+    else:
+        _atomic_symlink(current_release, runtime_root / "current")
     _write_json_atomic(runtime_root / "state.json", state)
 
 

@@ -686,7 +686,11 @@ def test_source_engine_rejects_version_skew(monkeypatch, tmp_path) -> None:
     package.mkdir()
     (package / "preflight.py").write_text("# engine\n", encoding="utf-8")
     (tmp_path / "VERSION").write_text("1.0.11\n", encoding="utf-8")
-    monkeypatch.setattr(preflight, "_is_canonical_checkout", lambda _root: True)
+    monkeypatch.setattr(
+        preflight,
+        "_checkout_repository",
+        lambda _root, _repositories: ident.identity().engine_repo,
+    )
 
     # conventions_engine.repo 必須對齊本次執行的 distribution identity，否則
     # 會先撞到「repo disagrees with conventions_engine.repo」而非本測試要驗

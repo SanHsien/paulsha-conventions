@@ -17,6 +17,7 @@ def test_builtin_identity_matches_current_constants():
     assert got.remote_base == "https://github.com"
     assert got.distribution_name == "paulsha-conventions"
     assert got.provider == "github"
+    assert got.source_checkout_repos == ("SanHsien/paulsha-conventions",)
 
 
 def test_remote_urls_covers_three_forms():
@@ -25,6 +26,17 @@ def test_remote_urls_covers_three_forms():
         "ssh://git@github.com/hamanpaul/paulsha-conventions",
         "git@github.com:hamanpaul/paulsha-conventions",
     }
+
+
+def test_source_checkout_repos_are_explicit_and_do_not_change_artifact_identity():
+    got = ident.identity()
+    assert got.allowed_source_repos() == (
+        "hamanpaul/paulsha-conventions",
+        "SanHsien/paulsha-conventions",
+    )
+    assert "https://github.com/SanHsien/paulsha-conventions" in got.remote_urls_for(
+        "SanHsien/paulsha-conventions"
+    )
 
 
 def test_alternative_distribution_swaps_urls(monkeypatch):
@@ -56,6 +68,19 @@ def test_invalid_provider_is_rejected(monkeypatch):
         "provider": "bitbucket",
     })
     with pytest.raises(ident.IdentityError):
+        ident.identity()
+
+
+def test_invalid_source_checkout_repos_are_rejected(monkeypatch):
+    monkeypatch.setattr(ident, "_load_raw", lambda: {
+        "canonical_org": "hamanpaul",
+        "engine_repo": "hamanpaul/arc-conventions",
+        "remote_base": "https://github.com",
+        "distribution_name": "arc-conventions",
+        "provider": "github",
+        "source_checkout_repos": ["attacker"],
+    })
+    with pytest.raises(ident.IdentityError, match="source_checkout_repos"):
         ident.identity()
 
 
@@ -138,6 +163,12 @@ def test_distribution_build_is_optional_and_int(monkeypatch):
     monkeypatch.setattr(ident, "_load_raw", lambda: {**base, "distribution_build": "x"})
     with pytest.raises(ident.IdentityError):
         ident.identity()
+
+
+def test_distribution_identity_keeps_distribution_build_positional_slot():
+    got = ident.DistributionIdentity("org", "org/repo", "https://x", "name", "github", 7)
+    assert got.distribution_build == 7
+    assert got.source_checkout_repos == ()
 
 
 def test_yaml_import_is_lazy_not_module_level():

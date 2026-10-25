@@ -40,7 +40,8 @@
   （保留 `extract_all_data_filtered` 呼叫）。上游尚未修，要不要回報由維護者決定。
 - `py/clear-text-storage-sensitive-data`（`runtime_bundle/manager.py`）：CodeQL 的 `trusted` 名稱 heuristic
   沒有辨識到具體憑證，但 v1 journal 的確會保存 state／launcher 的任意 raw bytes，不能只靠 false positive
-  dismiss 結案。改為 schema v2：journal 只保存 canonical state metadata、已驗證舊 release version 與 managed
-  launcher／skill link presence；recovery 依 presence 重新產生或移除 state、launcher、current 與 skill link。
+  dismiss 結案。改為 schema v2：journal 只保存 canonical state metadata，以及每個 managed launcher／skill link
+  個別的已驗證 release version 或缺失狀態；recovery 先驗證所有引用 release，再精準重建或移除 state、launcher、current
+  與 skill link，保留合法 repair 的不同世代與缺失狀態。
   首次安裝遇到既有 managed 路徑在 journal 前 fail-closed。v1 raw-snapshot journal 一律 fail-closed，須先用建立它的
   已驗證 runtime manager recovery。這是保密邊界修正，不是重新命名或排除掃描。

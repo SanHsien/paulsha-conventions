@@ -30,6 +30,57 @@ def test_canonical_remote_set_follows_identity(arc_identity):
     assert "https://github.com/hamanpaul/paulsha-conventions" not in urls
 
 
+def test_source_engine_accepts_only_metadata_allowlisted_fork(monkeypatch, tmp_path):
+    engine = tmp_path / "engine"
+    (engine / "policy_check").mkdir(parents=True)
+    (engine / "policy_check" / "preflight.py").write_text("# engine\n", encoding="utf-8")
+    (engine / "VERSION").write_text("1.0.19\n", encoding="utf-8")
+    monkeypatch.setattr(
+        preflight,
+        "_run_command",
+        lambda *_args, **_kwargs: subprocess.CompletedProcess(
+            ["git", "remote", "get-url", "origin"],
+            0,
+            "https://github.com/SanHsien/paulsha-conventions.git\n",
+            "",
+        ),
+    )
+
+    def git_result(command, **_kwargs):
+        output = "" if command[1] == "status" else "a" * 40
+        return subprocess.CompletedProcess(command, 0, output, "")
+
+    monkeypatch.setattr(preflight, "_run_or_error", git_result)
+    config = {
+        "policy_version": "1.0.19",
+        "conventions_engine": {"repo": "hamanpaul/paulsha-conventions"},
+    }
+    identity = preflight._source_engine(engine, config, display_prefix="skill")
+    assert identity.display == "skill:SanHsien/paulsha-conventions@" + "a" * 40
+
+
+def test_source_engine_rejects_unknown_fork(monkeypatch, tmp_path):
+    engine = tmp_path / "engine"
+    (engine / "policy_check").mkdir(parents=True)
+    (engine / "policy_check" / "preflight.py").write_text("# engine\n", encoding="utf-8")
+    monkeypatch.setattr(
+        preflight,
+        "_run_command",
+        lambda *_args, **_kwargs: subprocess.CompletedProcess(
+            ["git", "remote", "get-url", "origin"],
+            0,
+            "https://github.com/attacker/paulsha-conventions.git\n",
+            "",
+        ),
+    )
+    with pytest.raises(preflight.PreflightGateError, match="one of"):
+        preflight._source_engine(
+            engine,
+            {"policy_version": "1.0.19"},
+            display_prefix="skill",
+        )
+
+
 def test_repo_config_cannot_redirect_engine(arc_identity, tmp_path):
     """核心不變式：被檢查的 repo 不能把 authority 指到別處。"""
     engine_root = tmp_path / "engine"

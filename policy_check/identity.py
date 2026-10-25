@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import lru_cache
 from importlib.resources import files
+import re
 from typing import Any
 
 # yaml 延後到 _load_raw() 才 import：runtime_bundle 在最小環境（如 release
@@ -39,15 +40,22 @@ class DistributionIdentity:
     # 選填：發行編號。只進 manifest 與報告，不進 artifact 檔名
     # （integrity.py:23 的目錄名正則內嵌版號語法，階段一不得更動）。
     distribution_build: int | None = None
+    source_checkout_repos: tuple[str, ...] = ()
 
     def remote_urls(self) -> set[str]:
+        return self.remote_urls_for(self.engine_repo)
+
+    def remote_urls_for(self, repository: str) -> set[str]:
         base = self.remote_base.rstrip("/")
         host = base.split("://", 1)[-1]
         return {
-            f"{base}/{self.engine_repo}",
-            f"ssh://git@{host}/{self.engine_repo}",
-            f"git@{host}:{self.engine_repo}",
+            f"{base}/{repository}",
+            f"ssh://git@{host}/{repository}",
+            f"git@{host}:{repository}",
         }
+
+    def allowed_source_repos(self) -> tuple[str, ...]:
+        return (self.engine_repo, *self.source_checkout_repos)
 
 
 def _load_raw() -> dict[str, Any]:
@@ -100,6 +108,16 @@ def identity() -> DistributionIdentity:
             raise IdentityError(
                 f"distribution_build must be an integer, got {build!r}"
             ) from None
+    raw_sources = data.get("source_checkout_repos", [])
+    if not isinstance(raw_sources, list) or any(
+        not isinstance(repo, str)
+        or re.fullmatch(r"[^/\\\s]+/[^/\\\s]+", repo.strip()) is None
+        for repo in raw_sources
+    ):
+        raise IdentityError("source_checkout_repos must be a list of owner/repo strings")
+    source_repos = tuple(repo.strip() for repo in raw_sources)
+    if len(set(source_repos)) != len(source_repos) or str(data["engine_repo"]).strip() in source_repos:
+        raise IdentityError("source_checkout_repos must be unique and exclude engine_repo")
     return DistributionIdentity(
         canonical_org=str(data["canonical_org"]).strip(),
         engine_repo=str(data["engine_repo"]).strip(),
@@ -107,4 +125,5 @@ def identity() -> DistributionIdentity:
         distribution_name=str(data["distribution_name"]).strip(),
         provider=provider,
         distribution_build=build,
+        source_checkout_repos=source_repos,
     )

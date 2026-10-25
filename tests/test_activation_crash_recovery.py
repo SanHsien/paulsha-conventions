@@ -162,8 +162,8 @@ class ActivationCrashRecoveryTests(unittest.TestCase):
             snapshots = {
                 "state": state,
                 "current_version": old.name,
-                "launchers": {"preflight": False, "lifecycle": False},
-                "skill_link": False,
+                "launchers": {"preflight": None, "lifecycle": None},
+                "skill_version": None,
             }
 
             def no_restore_write(*_args, **_kwargs):
@@ -343,8 +343,8 @@ class RecoverTrustBoundaryTests(unittest.TestCase):
             snapshots = {
                 "state": None,
                 "current_version": None,
-                "launchers": {"preflight": False, "lifecycle": False},
-                "skill_link": False,
+                "launchers": {"preflight": None, "lifecycle": None},
+                "skill_version": None,
             }
             journal_path, anchor_path = manager._journal_paths(root)
             manager._append_activation_event(
@@ -420,7 +420,7 @@ class RecoverTrustBoundaryTests(unittest.TestCase):
 
             with mock.patch.object(
                 manager, "_default_skill_target", return_value=trusted_default
-            ):
+            ), mock.patch.object(manager, "_verified_release", return_value=old):
                 self.assertTrue(manager.recover(root))
 
             self.assertFalse(journal_path.exists())
@@ -437,8 +437,8 @@ class RecoverTrustBoundaryTests(unittest.TestCase):
             snapshots = {
                 "state": None,
                 "current_version": None,
-                "launchers": {"preflight": False, "lifecycle": False},
-                "skill_link": False,
+                "launchers": {"preflight": None, "lifecycle": None},
+                "skill_version": None,
             }
             journal_path, anchor_path = manager._journal_paths(root)
             manager._append_activation_event(
@@ -484,8 +484,8 @@ class RecoverTrustBoundaryTests(unittest.TestCase):
             snapshots = {
                 "state": None,
                 "current_version": None,
-                "launchers": {"preflight": False, "lifecycle": False},
-                "skill_link": False,
+                "launchers": {"preflight": None, "lifecycle": None},
+                "skill_version": None,
             }
             journal_path, anchor_path = manager._journal_paths(root)
             sequence, digest = manager._append_activation_event(
