@@ -54,6 +54,7 @@ def launcher(root_path, release_path, *, only=None):
     real_launcher(root_path, release_path, only=only)
     kill_after(only)
 
+manager._verified_release = lambda runtime_root, version: runtime_root.resolve() / "releases" / version
 manager._write_json_atomic = write
 manager._atomic_symlink = symlink
 manager._install_launcher = launcher
