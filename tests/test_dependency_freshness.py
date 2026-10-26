@@ -87,6 +87,20 @@ class DeclarationParsingTests(unittest.TestCase):
                 freshness.NPM_MANIFESTS = old
         self.assertEqual(names, ["left-pad"])
 
+    def test_floating_tag_keeps_its_floor_when_the_comment_is_not_a_version(self) -> None:
+        # `@v4 # keep` still declares v4; reading only the comment would drop the
+        # row to NO FLOOR and the stale pin would never be reported.
+        (package,) = pinned("actions/checkout@v4 # keep this")
+        self.assertEqual(package["minimum"], "4")
+
+    def test_sha_pin_without_a_version_comment_has_no_floor(self) -> None:
+        # A SHA starting with a digit must not be read as version "3".
+        for sha in ("a" * 40, "3" + "d" * 39):
+            for tail in (" # pinned", ""):
+                with self.subTest(sha=sha, tail=tail):
+                    (package,) = pinned(f"actions/checkout@{sha}{tail}")
+                    self.assertEqual(package["minimum"], "")
+
     def test_branch_ref_and_local_actions_are_not_compared(self) -> None:
         (branch,) = pinned("dtolnay/rust-toolchain@stable")
         self.assertEqual(branch["minimum"], "")

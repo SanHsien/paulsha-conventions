@@ -405,9 +405,15 @@ def parse_workflow_actions(text: str, source: str) -> list[dict[str, str]]:
         action, ref, comment = match.group(1), match.group(2), (match.group(3) or "").strip()
         hold = comment[len(HOLD_MARKER) :].strip() if comment.startswith(HOLD_MARKER) else ""
         # A pinned SHA carries its declared version in the trailing comment (`# v7.0.1`);
-        # a floating tag (`@v6`) carries it in the ref itself.
-        version_source = comment if comment else ref
-        version_match = _RELEASE_RE.match(version_source.lstrip("vV")) if not hold else None
+        # a floating tag (`@v6`) carries it in the ref itself. A comment that is not a
+        # version (`@v6 # keep`) must not hide the ref's own version.
+        version_match = None
+        if not hold:
+            sources = (comment,) if re.fullmatch(r"[0-9a-fA-F]{40}", ref) else (comment, ref)
+            for version_source in sources:
+                version_match = _RELEASE_RE.match(version_source.lstrip("vV"))
+                if version_match:
+                    break
         minimum = version_match.group(0) if version_match else ""
         packages.append(
             _package(
