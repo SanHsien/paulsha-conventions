@@ -500,11 +500,14 @@ def load_deferrals(path: Path = DEFERRALS_PATH) -> dict[str, tuple[str, str]]:
     without it (or without a reason) is ignored.
     """
     try:
-        entries = json.loads(path.read_text(encoding="utf-8")).get("deferrals", {})
+        document = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return {}
+    entries = document.get("deferrals") if isinstance(document, dict) else None
+    if not isinstance(entries, dict):
+        return {}
     deferrals: dict[str, tuple[str, str]] = {}
-    for name, entry in (entries or {}).items():
+    for name, entry in entries.items():
         if not isinstance(entry, dict):
             continue
         latest = str(entry.get("deferredLatest", "")).strip()

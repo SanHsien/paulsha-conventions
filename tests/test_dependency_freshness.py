@@ -221,5 +221,19 @@ class RepositoryContractTests(unittest.TestCase):
             self.assertIn(freshness.SECTION_TITLES[kind], report)
 
 
+class DeferralFileShapeTests(unittest.TestCase):
+    def _load(self, body: str) -> dict:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "deferrals.json"
+            path.write_text(body, encoding="utf-8")
+            return freshness.load_deferrals(path)
+
+    def test_malformed_deferral_file_is_ignored_not_fatal(self) -> None:
+        # A hand-edited file of the wrong shape must not kill the scheduled check.
+        for body in ("[]", "null", '{"deferrals": []}', '{"deferrals": "x"}'):
+            with self.subTest(body=body):
+                self.assertEqual(self._load(body), {})
+
+
 if __name__ == "__main__":
     unittest.main()
