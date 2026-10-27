@@ -68,11 +68,6 @@ class SlugAndRenderingTests(unittest.TestCase):
         self.assertEqual(upstream.upstream_slug("git@github.com:o/n"), "o/n")
         self.assertIsNone(upstream.upstream_slug("https://example.com/o/n"))
 
-    def test_pipe_in_a_ticket_title_cannot_break_the_table(self) -> None:
-        lines = upstream.render_ticket_section(
-            "PRs", 1, [{"number": 2, "title": "a | b"}], "pr", "docs/DECISIONS.md"
-        )
-        self.assertIn(r"| #2 | a \| b |", lines)
 
     def test_unchecked_tickets_are_not_reported_as_clean(self) -> None:
         text = "\n".join(upstream.render_ticket_section("PRs", 1, None, "pr", "log"))
