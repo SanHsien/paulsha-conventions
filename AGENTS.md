@@ -88,3 +88,7 @@ policy_version: 1.0.19
 review 變更時，除了 R-22 抓得到的懸空引用，另留意**語意陳舊**：引用都還在、但 docs 描述了已被這次變更改掉的架構／行為；發現時於 PR 留言指出、建議作者更新。Advisory，不擋 merge。建議將 GitHub Copilot 設為 PR reviewer 以啟用此層。
 
 MOC 的**狀態語意對齊**（`moc.map` 上某 stage 宣稱 done 是否真 done、被 postpone 的 stage 是否還誤掛 done）同屬此 advisory 層：R-24 只確定性檢查連結懸空／孤兒與靜態鮮度，狀態是否真對齊由 Copilot reviewer 留言提醒。
+
+## 路線圖
+
+- `ROADMAP.md` 是本 repo 後續工作的單一真相源。完成或新增工作時，在同一個 commit 更新它：做完的列刪掉、新工作加進去。不要在其他文件另列待辦。
