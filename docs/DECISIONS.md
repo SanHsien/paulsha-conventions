@@ -45,3 +45,11 @@
   與 skill link，保留合法 repair 的不同世代與缺失狀態。
   首次安裝遇到既有 managed 路徑在 journal 前 fail-closed。v1 raw-snapshot journal 一律 fail-closed，須先用建立它的
   已驗證 runtime manager recovery。這是保密邊界修正，不是重新命名或排除掃描。
+
+## 2026-11-02：上游 issue #95（commit 無新增、PR 無新增）
+- 範圍：commit 水位維持 `572cd48`（上游 tip 即此，behind 0）；PR 無新項目（水位 `#94`）；issue 新增 `#95`。
+- `#95` feat(preflight-ci) 外部指定 conventions 版本、GitHub／GitLab（`arc-conventions`）多來源自動選擇、未導入 repo 也能執行：**不採用**。
+  證據：2026-11-02 `gh api .../issues/95` 狀態 OPEN、0 則留言、無標籤；`gh pr list --search 95` 無對應 PR，上游尚無實作可移植。
+  本 fork 的 preflight 在 `policy_check/preflight.py`，來源固定為 GitHub 上的 paulsha-conventions；GitLab 來源與跨組織 registry 是上游組織的需求（判準七：主詞是上游使用者），不是本 fork 的缺陷。
+  觸發條件：上游出現關聯 #95 的 PR，或該 issue 轉成實作計畫——屆時用 PR 目前的 head 重看並檢查隱藏內容（判準八），只移植「版本優先順序與離線不假稱成功」的設計，不移植 GitLab 來源。
+- 水位：commit `572cd48`、PR `#94`、issue `#95`。
