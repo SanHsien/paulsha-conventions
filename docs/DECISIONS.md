@@ -53,3 +53,8 @@
   本 fork 的 preflight 在 `policy_check/preflight.py`，來源固定為 GitHub 上的 paulsha-conventions；GitLab 來源與跨組織 registry 是上游組織的需求（判準七：主詞是上游使用者），不是本 fork 的缺陷。
   觸發條件：上游出現關聯 #95 的 PR，或該 issue 轉成實作計畫——屆時用 PR 目前的 head 重看並檢查隱藏內容（判準八），只移植「版本優先順序與離線不假稱成功」的設計，不移植 GitLab 來源。
 - 水位：commit `572cd48`、PR `#94`、issue `#95`。
+
+## 2026-11-05：依賴新鮮度裁決
+
+- pytest：保留 `>=9.1.1` 相容下限，以宣告行 `freshness-hold` 記錄常態政策；新版仍可安裝，不把新鮮度誤當最低需求。已審閱 [9.2.0 release notes](https://docs.pytest.org/en/stable/changelog.html#pytest-9-2-0-2026-10-27)，本機使用 9.2.0 執行驗證；沒有新增 API 需求，不提高下限。
+- github/codeql-action 4.39.1→4.39.3 已升級（codeql.yml 改釘 SHA）

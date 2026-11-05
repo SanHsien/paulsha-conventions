@@ -12,7 +12,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-test = ["pytest>=9.1.1"]
+test = [
+    "pytest>=9.1.1", # freshness-hold: Keep the supported test-runner floor; newer pytest releases remain allowed, not required.
+]
 
 [project.scripts]
 policy-check = "policy_check.cli:main"
