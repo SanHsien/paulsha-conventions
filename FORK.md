@@ -31,7 +31,7 @@
 
 | 檔案 | 說明 |
 | --- | --- |
-| `CLAUDE.md`、`GEMINI.md` | 上游的 `CLAUDE.md` 是 canonical 真檔，`AGENTS.md` 與 `GEMINI.md` 是指向它的 symlink（git mode 120000）。本 fork 以 `AGENTS.md` 為 canonical 真檔，不放 `CLAUDE.md`、`GEMINI.md`（`docs/DECISIONS.md` 2026-10-24 條：上游改 `CLAUDE.md` 時，本 fork 只手動更新 `AGENTS.md` 的版本字樣） |
+| `CLAUDE.md`、`GEMINI.md` | 上游的 `CLAUDE.md` 是 canonical 真檔，`AGENTS.md` 與 `GEMINI.md` 是指向它的 symlink（git mode 120000）。本 fork 以 `AGENTS.md` 為 canonical 真檔，不放 `CLAUDE.md`、`GEMINI.md`；上游的 `.github/copilot-instructions.md`（symlink）指向 `../CLAUDE.md`，本 fork 的同名 symlink 指向 `../AGENTS.md`（`docs/DECISIONS.md` 2026-10-24 條：上游改 `CLAUDE.md` 時，本 fork 只手動更新 `AGENTS.md` 的版本字樣） |
 
 ### 兩邊都有但內容不同的檔案
 
@@ -46,7 +46,7 @@
 | `policy_check/runtime_bundle/builder.py`、`integrity.py`、`manager.py`、`policy_check/doc_drift/symbols.py` | 套用 `_safe_tar` 與 journal schema v2（見上） |
 | `pyproject.toml`、`README.md` | 測試依賴 `pytest>=9.1.1` 下限；README 的 Python 版本寫 3.11.4+ |
 
-其餘（`policy_check/rules/` 的 r08／r13／r14、數個 `tests/`、`docs/runtime-bundle-runbook.md`）內容也不同，本檔未逐行比對，不在此歸因。
+其餘（`policy_check/rules/` 的 r08／r13／r14、數個 `tests/`、`docs/runtime-bundle-runbook.md`）內容也不同，本檔未逐行比對，不在此歸因。`.github/copilot-instructions.md` 兩邊都是 symlink 但目標不同（上游 `../CLAUDE.md`、本 fork `../AGENTS.md`），所以也列為內容不同的檔案之一。
 
 ## 如何追蹤上游
 
