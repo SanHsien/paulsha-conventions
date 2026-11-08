@@ -58,3 +58,25 @@
 
 - pytest：保留 `>=9.1.1` 相容下限，以宣告行 `freshness-hold` 記錄常態政策；新版仍可安裝，不把新鮮度誤當最低需求。已審閱 [9.2.0 release notes](https://docs.pytest.org/en/stable/changelog.html#pytest-9-2-0-2026-10-27)，本機使用 9.2.0 執行驗證；沒有新增 API 需求，不提高下限。
 - github/codeql-action 4.39.1→4.39.3 已升級（codeql.yml 改釘 SHA）
+
+
+## 2026-11-08：決定 Python 最低版本與早期版本支援範圍
+
+維護者已授權代為決定 ROADMAP 近期列「決定 Python 最低版本與早期版本支援範圍」。
+
+### 決策
+維持 `pyproject.toml` 的 `requires-python = ">=3.11"` 相容宣告，並正式界定早期 Python 版本的支援邊界與功能分級：
+1. **靜態文本與語法檢查規則（推斷支援 Python >= 3.11.0）**：
+   經逐條審閱與依賴分析，R-01 至 R-21 與 R-23 至 R-27 之常規檢查規則僅依賴標準庫（ast、re、pathlib、subprocess 等）及 PyYAML，未呼叫 Python 3.11.4+ 專用 API，推斷可在 Python 3.11.0+ 正常運行。注意：本機僅具備 Python 3.14 與 CPython 3.11.15 環境，未在 3.11.0 實機實測，本項結論為基於代碼依據之靜態推斷，非實測驗證。
+2. **Doc-Drift 符號提取與 Runtime Bundle 解壓功能（包含 R-22，嚴格需要 Python >= 3.11.4）**：
+   嚴格限制需要 Python >= 3.11.4（即標準庫具備 `tarfile.data_filter` 安全機制之環境）。
+   - `policy_check/rules/r22_doc_reference.py:66` 於 PR 檢查比對 base 時呼叫 `symbols_at`，內部透過 `policy_check._safe_tar.extract_all_data_filtered` 安全解壓 `git archive` 封包；在 Python 3.11.0–3.11.3 執行時一律 fail-closed 拋出 `UnsafeTarSupportError`。
+   - `policy_check.runtime_bundle`（`builder.py:236` 與 `integrity.py:103`）之打包快照解壓與安裝校驗同理透過 `extract_all_data_filtered` 執行，在缺少 `data_filter` 時一律 fail-closed 拒絕執行，嚴禁退回無過濾之不安全解壓。
+
+### 依據與證據
+1. **安全性優先且已具備完整測試覆蓋**：本 fork 於 2026-10-24 針對 CodeQL tarslip 警示導入 `policy_check/_safe_tar.py`，徹底封鎖無過濾解壓；`tests/test_safe_tar.py::test_fails_closed_without_data_filter` 驗證在缺少 `data_filter` 時正確拋出 `UnsafeTarSupportError` 且寫入 0 位元組（fail-closed）。
+2. **規則依賴逐條查證**：全 repo 中僅 `policy_check/doc_drift/symbols.py:72`（由 R-22 呼叫）、`policy_check/runtime_bundle/builder.py:236` 與 `policy_check/runtime_bundle/integrity.py:103` 引用 `_safe_tar`。其餘規則（R-01 至 R-21、R-23 至 R-27）均不涉及 tar 封裝與解壓。
+3. **安全警示查證無漏洞**：2026-11-08 實查 `gh api repos/SanHsien/paulsha-conventions/dependabot/alerts?state=open` 與 `gh api repos/SanHsien/paulsha-conventions/code-scanning/alerts?state=open`，開放告警皆為 0 筆（`[]`）。
+
+### 重訪條件
+當上游將 `requires-python` 調高至 `>=3.11.4` 或更高等級，或核心規則不再支援 Python 3.11.0–3.11.3 時，同步推進 `pyproject.toml` 宣告。
