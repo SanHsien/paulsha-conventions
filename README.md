@@ -4,6 +4,10 @@
 
 > **[English](#english)** ｜ **[繁體中文](#繁體中文)**
 
+> **維護 fork**：本專案是 [hamanpaul/paulsha-conventions](https://github.com/hamanpaul/paulsha-conventions) 的維護 fork，原作者為 `hamanpaul`；上游未宣告授權，詳見 [FORK.md](FORK.md) 與 [NOTICE.md](NOTICE.md)。
+>
+> **Maintained fork**: a maintenance fork of [hamanpaul/paulsha-conventions](https://github.com/hamanpaul/paulsha-conventions) by `hamanpaul`. The upstream declares no license; see [FORK.md](FORK.md) and [NOTICE.md](NOTICE.md).
+
 > `hamanpaul/*` cross-repo policy gatekeeper — keeps docs, versions, branches, and PRs consistent, and prevents convention drift.
 > `hamanpaul/*` 跨專案 policy 守門員 — 讓文件、版號、分支、PR 保持一致，防止規範漂移。
 
