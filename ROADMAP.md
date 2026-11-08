@@ -1,19 +1,18 @@
 # 路線圖
 
 > 本 repo 後續工作的單一真相源。做完一項，就在同一個 commit 刪掉那一列；新工作只加在這裡。
-> 現況段的數字是 2026-10-29 依 `main` `d3412119ac7c` 查的快照，開工前先重查 GitHub。
+> 現況段的數字是 2026-11-08 快照（依 main `323dc49`），開工前先重查 GitHub。
 
 ## 現況
-這是跨 repo 文件、版本、分支與變更完整性的 policy 檢查引擎 fork（[README.md:1](README.md)）。2026-10-29 `gh` 查詢顯示 self-test、CodeQL、Dependency freshness、Upstream check 最近結果成功、開啟安全告警為 0、無 fork release；issues 停用而未查到 issue（2026-10-29 `gh` 查詢）。journal 與 tar 邊界已修並通過 Linux CI；Windows 全套仍有基線環境失敗，且套件宣告允許的 Python 版本與安全解壓所需版本有落差（接續開發報告與深掃報告，2026-10-2x；[docs/DECISIONS.md:33](docs/DECISIONS.md)、[pyproject.toml:9](pyproject.toml)）。
+這是跨 repo 文件、版本、分支與變更完整性的 policy 檢查引擎 fork（[README.md:1](README.md)）。2026-11-08 `gh` 實查顯示開啟安全告警（Dependabot 與 Code Scanning）皆為 0 筆、無 fork release；issues 停用而未查到 issue。Python 支援政策已於 2026-11-08 裁決維持 `>=3.11` 相容宣告，並明確限制 R-22 doc-drift 符號提取與 runtime bundle 嚴格需要 Python >= 3.11.4 並 fail-closed，其餘靜態檢查規則推斷支援 3.11.0+（[docs/DECISIONS.md](docs/DECISIONS.md)）。journal 與 tar 邊界已修並通過 Linux CI；Windows 全套仍有基線環境缺漏失敗（缺少 bash、symlink 等，實跑 85 failed 皆為 Windows baseline 失敗，892 passed，tests/test_safe_tar.py 5 通過）。
 
 ## 近期：可以直接動手
-| 項目 | 為什麼 | 驗收方式 | 建議執行者 | 證據 |
-| --- | --- | --- | --- | --- |
-| 決定 Python 最低版本與早期版本支援範圍 | 套件可安裝不代表 runtime bundle／doc-drift 解壓功能可用 | 明確選擇提高 `requires-python`，或保留舊版但清楚限制功能；在最低支援環境驗證安裝與拒絕行為一致，任何選擇都不能退回無過濾解壓 | 維護者 | [pyproject.toml:9](pyproject.toml)、[policy_check/_safe_tar.py:17](policy_check/_safe_tar.py)、[docs/DECISIONS.md:37](docs/DECISIONS.md) |
+目前無直接可動手項目（「決定 Python 最低版本與早期版本支援範圍」已於 2026-11-08 裁決維持 `>=3.11` 並界定功能分級，見 [docs/DECISIONS.md](docs/DECISIONS.md)）。
 
 ## 中期：等條件成立再做
 | 項目 | 觸發條件 | 驗收方式 | 建議執行者 | 證據 |
 | --- | --- | --- | --- | --- |
+| 在最低支援環境驗證 Python 3.11 早期版本安裝與拒絕行為 | 取得 Python 3.11.0–3.11.3 環境或把它加入 CI 矩陣 | 在最低支援環境驗證安裝與拒絕行為一致，任何選擇都不能退回無過濾解壓 | 維護者 | [pyproject.toml:9](pyproject.toml)、[policy_check/_safe_tar.py:17](policy_check/_safe_tar.py)、[docs/DECISIONS.md](docs/DECISIONS.md) |
 | 建立正式 Windows 全套支援 | 維護者要求 Windows 跑完整 policy 與 runtime 測試 | 先補齊 symlink、bash、ctags 條件並固定基線，逐類修正剩餘差異；Windows pytest、policy 與 canonical preflight 通過，Linux 不退步 | Codex | 接續開發報告（2026-10-2x）「Windows 測試修補」；[AGENTS.md:43](AGENTS.md) |
 | 收斂 snapshot 驗證的 release 範圍 | 已證實無關舊 release 損壞會阻塞正常 lifecycle，且維護者要求改善 | 先用隔離 runtime root 重現；只重驗必要版本前，證明 journal 所有引用、current 與 managed repair 仍受驗證，crash recovery 與 rollback 測試通過 | Claude Opus | [docs/runtime-bundle-runbook.md:111](docs/runtime-bundle-runbook.md)、[docs/DECISIONS.md:43](docs/DECISIONS.md) |
 | 改善 preflight 失敗摘要 | stderr 警告遮住 stdout 的測試失敗摘要 | 用同時輸出警告與失敗摘要的假命令重現；兩流摘要皆可見、長度仍有上限，退出碼及 gate 判定不變 | Codex | [policy_check/preflight.py:856](policy_check/preflight.py)；接續開發報告（2026-10-2x）「刻意不做／延後」 |
