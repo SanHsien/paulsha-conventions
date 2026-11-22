@@ -39,7 +39,7 @@ policy_version: 1.0.19
 ## 完成任務（claim done）前
 - [ ] 本 PR 有新增對應的 changelog fragment `changelog.d/<issue>-<slug>.md`（或 PR 標 `skip-changelog` + 理由）
 - [ ] `VERSION` 內容與意圖一致（release label PR 才可偏離 latest tag）
-- [ ] `.github/pull_request_template.md` checklist 全勾
+- [ ] PR body checklist 全勾（R-11；本 repo 無 `.github/pull_request_template.md`，checklist 由 PR body 自行帶出）
 - [ ] 測試全綠（本 repo: `python3 -m pytest -q`）
 - [ ] `python3 -m policy_check --repo .` 無任何 failure
 - [ ] 已執行本 repo 擁有的 canonical `preflight-ci` skill（其核心為 `policy-preflight`），且全部 selected gates 通過
